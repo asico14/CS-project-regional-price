@@ -7,10 +7,6 @@ from locations.models import City, Store
 
 
 class SmokeTests(TestCase):
-    def test_index(self):
-        response = self.client.get(reverse("index"))
-        self.assertEqual(response.status_code, 200)
-
     def test_health(self):
         response = self.client.get(reverse("health"))
         self.assertEqual(response.status_code, 200)
@@ -50,3 +46,41 @@ class AdminTests(TestCase):
         self.assertEqual(self.client.post(delete_url, {"post": "yes"}).status_code, 403)
         self.price.refresh_from_db()
         self.assertEqual(self.price.amount, 12000)
+
+
+class AuthTests(TestCase):
+    def setUp(self):
+        users = get_user_model().objects
+        self.staff = users.create_user("staff", password="pw", is_staff=True)
+        self.reader = users.create_user("reader", password="pw")
+
+    def test_anonymous_is_sent_to_login(self):
+        response = self.client.get(reverse("index"))
+        self.assertRedirects(response, "/login/?next=/")
+
+    def test_non_staff_user_gets_403(self):
+        self.client.force_login(self.reader)
+        response = self.client.get(reverse("index"))
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, "No access", status_code=403)
+
+    def test_staff_can_log_in_and_out(self):
+        response = self.client.post(
+            reverse("login"), {"username": "staff", "password": "pw", "next": "/"}
+        )
+        self.assertRedirects(response, "/")
+        self.assertContains(self.client.get("/"), "Log out")
+        # Logging out must be a POST request.
+        self.assertEqual(self.client.get(reverse("logout")).status_code, 405)
+        self.assertRedirects(self.client.post(reverse("logout")), "/login/")
+        self.assertRedirects(self.client.get("/"), "/login/?next=/")
+
+    def test_wrong_password_is_rejected(self):
+        response = self.client.post(
+            reverse("login"), {"username": "staff", "password": "nope"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertRedirects(self.client.get("/"), "/login/?next=/")
+
+    def test_health_stays_public(self):
+        self.assertEqual(self.client.get(reverse("health")).status_code, 200)

@@ -1,12 +1,13 @@
 from django.db import connection
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
+from django.shortcuts import render
+
+from .access import staff_required
 
 
+@staff_required
 def index(request):
-    return HttpResponse(
-        "Regional Price & Deals - Fergana Valley channel platform. "
-        "Admin panel: /admin/"
-    )
+    return render(request, "core/index.html")
 
 
 def health(request):
