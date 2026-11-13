@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 
 class Category(models.Model):
@@ -18,8 +20,8 @@ class Category(models.Model):
 class Product(models.Model):
     """A product whose price is compared between stores.
 
-    Prices are not stored here: they will live in their own model
-    (one row per store and date) so that the history is kept.
+    Prices are not stored here: they live in the Price model
+    (one row per observation) so that the history is kept.
     """
 
     class Unit(models.TextChoices):
@@ -59,3 +61,60 @@ class Product(models.Model):
             parts.append(self.brand)
         parts.append(f"{self.unit_size.normalize():f} {self.get_unit_display()}")
         return ", ".join(parts)
+
+
+class PriceQuerySet(models.QuerySet):
+    """Blocks bulk changes so the history stays append-only."""
+
+    def update(self, **kwargs):
+        raise ValidationError("Prices are append-only: add a new price instead.")
+
+    def delete(self):
+        raise ValidationError("Prices are append-only and cannot be deleted.")
+
+
+class Price(models.Model):
+    """One observed price of a product in a store at a moment in time.
+
+    The table is append-only: a price change is a NEW row, old rows are
+    never edited or removed. This is what makes price history and
+    charts possible later.
+    """
+
+    product = models.ForeignKey(
+        Product, on_delete=models.PROTECT, related_name="prices"
+    )
+    store = models.ForeignKey(
+        "locations.Store", on_delete=models.PROTECT, related_name="prices"
+    )
+    # Price in so'm for one item of the product.
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    recorded_at = models.DateTimeField(default=timezone.now)
+
+    objects = PriceQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-recorded_at", "-id"]
+        get_latest_by = ["recorded_at", "id"]
+        indexes = [
+            models.Index(
+                fields=["product", "store", "-recorded_at"],
+                name="price_history_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0), name="price_amount_positive"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.product} @ {self.store}: {self.amount} so'm"
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Prices are append-only: add a new price instead.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Prices are append-only and cannot be deleted.")

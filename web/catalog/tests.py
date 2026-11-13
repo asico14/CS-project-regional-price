@@ -1,10 +1,13 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
 
-from .models import Category, Product
+from locations.models import City, Store
+
+from .models import Category, Price, Product
 
 
 class CatalogModelTests(TestCase):
@@ -47,3 +50,50 @@ class CatalogModelTests(TestCase):
         Product.objects.create(name="Sut", category=self.dairy)
         with self.assertRaises(ProtectedError):
             self.dairy.delete()
+
+
+class PriceModelTests(TestCase):
+    def setUp(self):
+        category = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.milk = Product.objects.create(name="Sut", category=category)
+        self.store = Store.objects.create(name="Korzinka", city=city)
+
+    def add_price(self, amount):
+        return Price.objects.create(product=self.milk, store=self.store, amount=amount)
+
+    def test_new_price_keeps_old_one(self):
+        self.add_price(12000)
+        newest = self.add_price(13500)
+        self.assertEqual(Price.objects.count(), 2)
+        self.assertEqual(self.milk.prices.latest(), newest)
+        self.assertEqual(self.milk.prices.first(), newest)
+
+    def test_price_cannot_be_edited(self):
+        price = self.add_price(12000)
+        price.amount = 1
+        with self.assertRaises(ValidationError):
+            price.save()
+        with self.assertRaises(ValidationError):
+            Price.objects.update(amount=1)
+        price.refresh_from_db()
+        self.assertEqual(price.amount, 12000)
+
+    def test_price_cannot_be_deleted(self):
+        price = self.add_price(12000)
+        with self.assertRaises(ValidationError):
+            price.delete()
+        with self.assertRaises(ValidationError):
+            Price.objects.all().delete()
+        self.assertEqual(Price.objects.count(), 1)
+
+    def test_amount_must_be_positive(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.add_price(0)
+
+    def test_product_and_store_with_prices_cannot_be_deleted(self):
+        self.add_price(12000)
+        with self.assertRaises(ProtectedError):
+            self.milk.delete()
+        with self.assertRaises(ProtectedError):
+            self.store.delete()
