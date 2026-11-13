@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Stores{% endblock %}
+{% block content %}
+<h1>Stores</h1>
+<form method="get" class="toolbar">
+  <select name="city" aria-label="City">
+    <option value="">All cities</option>
+    {% for city in cities %}
+    <option value="{{ city.pk }}"{% if city.pk|stringformat:"s" == city_id %} selected{% endif %}>{{ city.name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filter</button>
+  {% if city_id %}<a href="{% url 'store_list' %}">Clear</a>{% endif %}
+  <span class="spacer"></span>
+  <a class="button" href="{% url 'store_create' %}">Add store</a>
+</form>
+
+{% if stores %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Store</th><th>City</th><th>District</th><th>Address</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for store in stores %}
+      <tr>
+        <td>{{ store.name }}</td>
+        <td>{{ store.city.name }}</td>
+        <td>{{ store.district.name|default:"—" }}</td>
+        <td>{{ store.address|default:"—" }}</td>
+        <td>{% if store.is_active %}<span class="tag">active</span>{% else %}<span class="tag off">hidden</span>{% endif %}</td>
+        <td><a href="{% url 'store_update' store.pk %}">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "pagination.html" %}
+{% else %}
+<p class="muted">No stores match this filter.</p>
+{% endif %}
+{% endblock %}

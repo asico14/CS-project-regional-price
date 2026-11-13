@@ -12,6 +12,7 @@
     {% if user.is_authenticated %}
     <nav>
       <a href="{% url 'product_list' %}">Products</a>
+      <a href="{% url 'store_list' %}">Stores</a>
       <a href="{% url 'admin:index' %}">Admin</a>
     </nav>
     <form class="logout" method="post" action="{% url 'logout' %}">
