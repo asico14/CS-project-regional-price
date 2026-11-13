@@ -2,7 +2,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Category, Product
+from locations.models import City, Store
+
+from .models import Category, Price, Product
 
 
 class StaffTestCase(TestCase):
@@ -105,3 +107,84 @@ class ProductFormTests(StaffTestCase):
         response = self.client.post(reverse("product_create"), self.form_data())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Product.objects.filter(name="Qatiq").count(), 1)
+
+
+class PriceEntryTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.store = Store.objects.create(name="Baraka", city=city)
+        self.other_store = Store.objects.create(name="Arzon", city=city)
+        self.url = reverse("price_entry")
+
+    def post(self, **fields):
+        return self.client.post(self.url, {"store": self.store.pk, **fields})
+
+    def test_requires_staff(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+        self.post(**{f"price_{self.milk.pk}": "12000"})
+        self.assertEqual(Price.objects.count(), 0)
+
+    def test_page_lists_active_products_with_current_price(self):
+        Price.objects.create(product=self.milk, store=self.store, amount=11000)
+        Price.objects.create(product=self.milk, store=self.store, amount=12000)
+        Price.objects.create(product=self.milk, store=self.other_store, amount=99000)
+        self.sugar.is_active = False
+        self.sugar.save()
+        response = self.client.get(self.url, {"store": self.store.pk})
+        rows = response.context["rows"]
+        self.assertEqual([row["product"] for row in rows], [self.milk])
+        self.assertEqual(rows[0]["current"].amount, 12000)
+
+    def test_saves_only_filled_rows(self):
+        response = self.post(
+            **{f"price_{self.milk.pk}": "12 500", f"price_{self.sugar.pk}": ""}
+        )
+        self.assertRedirects(response, f"{self.url}?store={self.store.pk}")
+        price = Price.objects.get()
+        self.assertEqual((price.product, price.store), (self.milk, self.store))
+        self.assertEqual(price.amount, 12500)
+        self.assertFalse(price.is_promo)
+
+    def test_unchanged_price_is_not_saved_again(self):
+        self.post(**{f"price_{self.milk.pk}": "12500"})
+        self.post(**{f"price_{self.milk.pk}": "12500,00"})
+        self.assertEqual(Price.objects.count(), 1)
+        self.post(**{f"price_{self.milk.pk}": "13000"})
+        self.assertEqual(Price.objects.count(), 2)
+
+    def test_promo_price_with_end_date(self):
+        self.post(
+            **{
+                f"price_{self.milk.pk}": "9900",
+                f"promo_{self.milk.pk}": "on",
+                f"price_{self.sugar.pk}": "12000",
+                "promo_ends": "2030-01-15",
+            }
+        )
+        promo = Price.objects.get(product=self.milk)
+        regular = Price.objects.get(product=self.sugar)
+        self.assertTrue(promo.is_promo)
+        self.assertEqual(str(promo.promo_ends), "2030-01-15")
+        self.assertFalse(regular.is_promo)
+        self.assertIsNone(regular.promo_ends)
+
+    def test_one_bad_value_saves_nothing(self):
+        for bad in ["abc", "0", "-5", "NaN", "1e99"]:
+            with self.subTest(bad=bad):
+                response = self.post(
+                    **{f"price_{self.milk.pk}": bad, f"price_{self.sugar.pk}": "12000"}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "Enter a price greater than zero.")
+                # The typed values stay in the form.
+                self.assertContains(response, 'value="12000"')
+                self.assertEqual(Price.objects.count(), 0)
+
+    def test_bad_promo_date_saves_nothing(self):
+        response = self.post(
+            **{f"price_{self.milk.pk}": "12000", "promo_ends": "not-a-date"}
+        )
+        self.assertContains(response, "Enter a valid date.")
+        self.assertEqual(Price.objects.count(), 0)

@@ -66,6 +66,17 @@ class Product(models.Model):
 class PriceQuerySet(models.QuerySet):
     """Blocks bulk changes so the history stays append-only."""
 
+    def current(self):
+        """Only the newest price of every product in every store."""
+        newest = (
+            Price.objects.filter(
+                product=models.OuterRef("product"), store=models.OuterRef("store")
+            )
+            .order_by("-recorded_at", "-id")
+            .values("pk")[:1]
+        )
+        return self.filter(pk=models.Subquery(newest))
+
     def update(self, **kwargs):
         raise ValidationError("Prices are append-only: add a new price instead.")
 

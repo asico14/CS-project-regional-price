@@ -10,4 +10,5 @@ urlpatterns = [
         views.ProductUpdateView.as_view(),
         name="product_update",
     ),
+    path("prices/entry/", views.price_entry, name="price_entry"),
 ]

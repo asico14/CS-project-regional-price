@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Enter prices{% endblock %}
+{% block content %}
+<h1>Enter prices</h1>
+<form method="get" class="toolbar">
+  <select name="store" aria-label="Store" onchange="this.form.submit()">
+    <option value="">Choose a store…</option>
+    {% for option in stores %}
+    <option value="{{ option.pk }}"{% if store and option.pk == store.pk %} selected{% endif %}>{{ option.city.name }} — {{ option.name }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit">Open</button></noscript>
+</form>
+
+{% if store %}
+<p class="muted">
+  Type only the prices that changed. Empty rows are skipped. Press Enter to jump to the next product.
+</p>
+<form method="post" id="price-form">
+  {% csrf_token %}
+  <input type="hidden" name="store" value="{{ store.pk }}">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Product</th><th class="num">Current price</th><th>New price (so'm)</th><th>Promo</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% ifchanged row.product.category_id %}
+        <tr><th colspan="4">{{ row.product.category.name }}</th></tr>
+        {% endifchanged %}
+        <tr>
+          <td><label for="price_{{ row.product.pk }}">{{ row.product }}</label></td>
+          <td class="num">
+            {% if row.current %}
+              {{ row.current.amount|floatformat:"-2g" }}
+              {% if row.current.is_active_promo %}<span class="tag promo">promo</span>{% endif %}
+              <div class="muted">{{ row.current.recorded_at|date:"d.m.Y" }}</div>
+            {% else %}<span class="muted">no price yet</span>{% endif %}
+          </td>
+          <td>
+            <input class="price-input" type="text" inputmode="decimal" autocomplete="off" size="10"
+                   id="price_{{ row.product.pk }}" name="price_{{ row.product.pk }}" value="{{ row.value }}"
+                   {% if forloop.first %}autofocus{% endif %}>
+            {% if row.error %}<ul class="errorlist"><li>{{ row.error }}</li></ul>{% endif %}
+          </td>
+          <td>
+            <input type="checkbox" name="promo_{{ row.product.pk }}" aria-label="Promo price for {{ row.product }}"{% if row.promo %} checked{% endif %}>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="muted">There are no active products yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="toolbar">
+    <label for="promo_ends">Promo prices are valid until</label>
+    <input type="date" id="promo_ends" name="promo_ends" value="{{ promo_ends }}">
+    {% if promo_ends_error %}<span class="errorlist">{{ promo_ends_error }}</span>{% endif %}
+    <span class="spacer"></span>
+    <button type="submit">Save prices</button>
+  </div>
+</form>
+<script>
+  // Enter moves to the next price field instead of submitting the form.
+  const inputs = Array.from(document.querySelectorAll(".price-input"));
+  inputs.forEach((input, index) => {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && index < inputs.length - 1) {
+        event.preventDefault();
+        inputs[index + 1].focus();
+      }
+    });
+  });
+</script>
+{% else %}
+<p class="muted">Choose a store to see its product list.</p>
+{% endif %}
+{% endblock %}
