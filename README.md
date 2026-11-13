@@ -9,7 +9,7 @@ A Django-managed Telegram channel platform for the Fergana Valley region
 save money through promotions, price tracking, price comparison,
 product reviews, life hacks, and store news.
 
-**Status:** In development (Week 2 of 8) — Parts 1–7 done (Docker skeleton, apps, location, catalog and price models).
+**Status:** In development — Parts 1–20 of 30 done (catalog, prices, baskets, staff pages, Post model).
 
 ## Stack
 - Python 3.11+
@@ -60,7 +60,20 @@ worker/              Telegram bot (python-telegram-bot, long polling)
 - **worker** starts after web is healthy and runs the bot. Without a
   token it stops with an error message in the logs.
 - Both services mount the `data` volume at `/data`, so they use the same
-  SQLite file, `/data/db.sqlite3`.
+  SQLite file, `/data/db.sqlite3`, and the same uploaded photos, `/data/media`.
+
+## Pages (staff only)
+Log in at http://localhost:8000/login/ with a staff account
+(`createsuperuser` makes one).
+
+| Page | URL |
+|---|---|
+| Enter today's prices for a store | `/prices/entry/` |
+| Products: list, search, add, edit | `/products/` |
+| Product: current prices and 30-day price chart | `/products/<id>/` |
+| Stores: list by city, add, edit | `/stores/` |
+| Baskets: compare the cost of a shopping list between stores | `/baskets/` |
+| Admin (all data, including posts) | `/admin/` |
 
 ## Architecture
 _Diagram and explanation coming in Part 30._

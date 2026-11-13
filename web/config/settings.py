@@ -123,6 +123,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Uploaded files (post photos). In Docker this is /data/media on the
+# shared volume, so the worker can read the photos it has to publish.
+MEDIA_URL = "media/"
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media"))
+
 # Authentication: the site is for channel staff only.
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "index"
