@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ basket.name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'basket_list' %}">← Baskets</a></p>
+<h1>{{ basket.name }}</h1>
+<p class="muted">
+  {% if basket.description %}{{ basket.description }} · {% endif %}
+  {% for item in items %}{{ item.quantity.normalize }} × {{ item.product.name }}{% if not forloop.last %}, {% endif %}{% empty %}No products yet{% endfor %}
+  · <a href="{% url 'basket_update' basket.pk %}">Edit</a>
+</p>
+
+<h2>Where is this basket cheapest?</h2>
+<form method="get" class="toolbar">
+  <select name="city" aria-label="City" onchange="this.form.submit()">
+    <option value="">All cities</option>
+    {% for option in cities %}
+    <option value="{{ option.pk }}"{% if city and option.pk == city.pk %} selected{% endif %}>{{ option.name }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit">Filter</button></noscript>
+</form>
+
+{% if results %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Place</th><th>Store</th><th>City</th><th class="num">Total (so'm)</th><th class="num">More than cheapest</th><th>Missing products</th></tr>
+    </thead>
+    <tbody>
+      {% for result in results %}
+      <tr{% if result.rank == 1 %} class="cheapest"{% endif %}>
+        <td>{% if result.rank %}{{ result.rank }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>
+          <details>
+            <summary>{{ result.store.name }}</summary>
+            <ul>
+              {% for line in result.lines %}
+              <li>
+                {{ line.item.quantity.normalize }} × {{ line.item.product.name }}:
+                {% if line.price %}{{ line.total|floatformat:"-2g" }}{% if line.price.is_promo %} <span class="tag promo">promo</span>{% endif %}
+                {% else %}<span class="tag off">no price</span>{% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          </details>
+        </td>
+        <td>{{ result.store.city.name }}</td>
+        <td class="num">{{ result.total|floatformat:"-2g" }}{% if not result.complete %} <span class="muted">*</span>{% endif %}</td>
+        <td class="num">{% if result.rank == 1 %}<span class="tag best">cheapest</span>{% elif result.complete %}+{{ result.extra|floatformat:"-2g" }}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td>{% for product in result.missing %}{{ product.name }}{% if not forloop.last %}, {% endif %}{% empty %}<span class="muted">—</span>{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if has_incomplete %}
+<p class="muted">* Partial total: this store has no current price for some products, so it is not ranked.</p>
+{% endif %}
+{% else %}
+<p class="muted">No store{% if city %} in {{ city.name }}{% endif %} has prices for the products of this basket yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{% if basket %}Edit basket{% else %}Add basket{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if basket %}Edit basket{% else %}Add basket{% endif %}</h1>
+<form method="post" class="form">
+  {% csrf_token %}
+  {{ form.as_p }}
+
+  <h2>Products</h2>
+  <p class="muted">Leave a row empty to skip it. Save to get more empty rows.</p>
+  {{ formset.management_form }}
+  {{ formset.non_form_errors }}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Product</th><th>Quantity</th><th>Remove</th></tr></thead>
+      <tbody>
+        {% for item_form in formset %}
+        <tr>
+          <td>{{ item_form.id }}{{ item_form.non_field_errors }}{{ item_form.product.errors }}{{ item_form.product }}</td>
+          <td>{{ item_form.quantity.errors }}{{ item_form.quantity }}</td>
+          <td>{% if item_form.instance.pk %}{{ item_form.DELETE }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="toolbar">
+    <button type="submit">Save</button>
+    <a class="button secondary" href="{% if basket %}{% url 'basket_detail' basket.pk %}{% else %}{% url 'basket_list' %}{% endif %}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

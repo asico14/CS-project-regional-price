@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Baskets{% endblock %}
+{% block content %}
+<h1>Baskets</h1>
+<div class="toolbar">
+  <span class="muted">A basket is a fixed shopping list used to compare stores.</span>
+  <span class="spacer"></span>
+  <a class="button" href="{% url 'basket_create' %}">Add basket</a>
+</div>
+{% if baskets %}
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Basket</th><th>Description</th><th class="num">Products</th><th></th></tr></thead>
+    <tbody>
+      {% for basket in baskets %}
+      <tr>
+        <td><a href="{% url 'basket_detail' basket.pk %}">{{ basket.name }}</a></td>
+        <td>{{ basket.description|default:"—" }}</td>
+        <td class="num">{{ basket.item_count }}</td>
+        <td><a href="{% url 'basket_update' basket.pk %}">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">There are no baskets yet.</p>
+{% endif %}
+{% endblock %}
