@@ -6,13 +6,14 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
-from django.views.generic import CreateView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.access import StaffRequiredMixin, staff_required
-from locations.models import Store
+from locations.models import City, Store
 
 from .forms import ProductForm
 from .models import Category, Price, Product
+from .services import current_prices
 
 MAX_PRICE = Decimal("9999999999.99")
 
@@ -46,6 +47,23 @@ class ProductListView(StaffRequiredMixin, ListView):
         params = self.request.GET.copy()
         params.pop("page", None)
         context["filter_query"] = params.urlencode()
+        return context
+
+
+class ProductDetailView(StaffRequiredMixin, DetailView):
+    """Compare the current prices of one product between stores."""
+
+    model = Product
+    template_name = "catalog/product_detail.html"
+    context_object_name = "product"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        city_id = self.request.GET.get("city", "")
+        city = City.objects.filter(pk=city_id).first() if city_id.isdigit() else None
+        context["city"] = city
+        context["cities"] = City.objects.all()
+        context["rows"] = current_prices(self.object, city=city)
         return context
 
 

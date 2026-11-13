@@ -25,7 +25,7 @@
     <tbody>
       {% for product in products %}
       <tr>
-        <td>{{ product.name }}</td>
+        <td><a href="{% url 'product_detail' product.pk %}">{{ product.name }}</a></td>
         <td>{{ product.brand|default:"—" }}</td>
         <td>{{ product.category.name }}</td>
         <td>{{ product.unit_size.normalize }} {{ product.get_unit_display }}</td>

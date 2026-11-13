@@ -188,3 +188,33 @@ class PriceEntryTests(StaffTestCase):
         )
         self.assertContains(response, "Enter a valid date.")
         self.assertEqual(Price.objects.count(), 0)
+
+
+class ProductDetailTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        self.city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.baraka = Store.objects.create(name="Baraka", city=self.city)
+        self.arzon = Store.objects.create(name="Arzon", city=self.city)
+        self.url = reverse("product_detail", args=[self.milk.pk])
+
+    def test_requires_staff(self):
+        self.client.logout()
+        self.assertEqual(self.client.get(self.url).status_code, 302)
+
+    def test_shows_prices_with_cheapest_highlighted(self):
+        Price.objects.create(product=self.milk, store=self.baraka, amount=13000)
+        Price.objects.create(product=self.milk, store=self.arzon, amount=12000)
+        response = self.client.get(self.url, {"city": self.city.pk})
+        self.assertContains(response, 'class="cheapest"', count=1)
+        rows = response.context["rows"]
+        self.assertEqual(rows[0]["price"].store, self.arzon)
+        self.assertTrue(rows[0]["cheapest"])
+
+    def test_product_without_prices(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, "No prices have been entered")
+
+    def test_unknown_product_is_404(self):
+        response = self.client.get(reverse("product_detail", args=[99999]))
+        self.assertEqual(response.status_code, 404)

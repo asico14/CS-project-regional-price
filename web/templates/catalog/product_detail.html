@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+<p><a href="{% url 'product_list' %}">← Products</a></p>
+<h1>{{ product }}</h1>
+<p class="muted">
+  {{ product.category.name }}
+  {% if not product.is_active %}<span class="tag off">hidden</span>{% endif %}
+  · <a href="{% url 'product_update' product.pk %}">Edit</a>
+</p>
+
+<h2>Current prices</h2>
+<form method="get" class="toolbar">
+  <select name="city" aria-label="City" onchange="this.form.submit()">
+    <option value="">All cities</option>
+    {% for option in cities %}
+    <option value="{{ option.pk }}"{% if city and option.pk == city.pk %} selected{% endif %}>{{ option.name }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit">Filter</button></noscript>
+</form>
+
+{% if rows %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Store</th><th>City</th><th class="num">Price (so'm)</th><th>Updated</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr{% if row.cheapest %} class="cheapest"{% endif %}>
+        <td>{{ row.price.store.name }}</td>
+        <td>{{ row.price.store.city.name }}</td>
+        <td class="num">{{ row.price.amount|floatformat:"-2g" }}</td>
+        <td>{{ row.price.recorded_at|date:"d.m.Y" }}</td>
+        <td>
+          {% if row.cheapest %}<span class="tag best">cheapest</span>{% endif %}
+          {% if row.expired %}<span class="tag off">promo ended {{ row.price.promo_ends|date:"d.m" }}</span>
+          {% elif row.price.is_promo %}<span class="tag promo">promo{% if row.price.promo_ends %} until {{ row.price.promo_ends|date:"d.m" }}{% endif %}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">No prices have been entered for this product{% if city %} in {{ city.name }}{% endif %} yet.</p>
+{% endif %}
+{% endblock %}
