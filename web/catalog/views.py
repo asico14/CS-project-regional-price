@@ -1,8 +1,11 @@
+from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Q
-from django.views.generic import ListView
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, ListView, UpdateView
 
 from core.access import StaffRequiredMixin
 
+from .forms import ProductForm
 from .models import Category, Product
 
 
@@ -36,3 +39,19 @@ class ProductListView(StaffRequiredMixin, ListView):
         params.pop("page", None)
         context["filter_query"] = params.urlencode()
         return context
+
+
+class ProductCreateView(StaffRequiredMixin, SuccessMessageMixin, CreateView):
+    model = Product
+    form_class = ProductForm
+    template_name = "catalog/product_form.html"
+    success_url = reverse_lazy("product_list")
+    success_message = "Product “%(name)s” was added."
+
+
+class ProductUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = Product
+    form_class = ProductForm
+    template_name = "catalog/product_form.html"
+    success_url = reverse_lazy("product_list")
+    success_message = "Product “%(name)s” was saved."

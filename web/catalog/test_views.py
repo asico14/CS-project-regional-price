@@ -52,3 +52,56 @@ class ProductListTests(StaffTestCase):
         response = self.client.get(self.url, {"q": "Choy"})
         self.assertEqual(len(response.context["products"]), 25)
         self.assertContains(response, "?q=Choy&amp;page=2")
+
+
+class ProductFormTests(StaffTestCase):
+    def form_data(self, **changes):
+        data = {
+            "name": "Qatiq",
+            "brand": "Sof Sut",
+            "category": self.dairy.pk,
+            "unit": "l",
+            "unit_size": "0.5",
+            "is_active": "on",
+        }
+        data.update(changes)
+        return data
+
+    def test_requires_staff(self):
+        self.client.logout()
+        response = self.client.post(reverse("product_create"), self.form_data())
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Product.objects.filter(name="Qatiq").exists())
+
+    def test_create_product(self):
+        response = self.client.post(
+            reverse("product_create"), self.form_data(name="  Qatiq ")
+        )
+        self.assertRedirects(response, reverse("product_list"))
+        product = Product.objects.get(name="Qatiq")
+        self.assertEqual(product.category, self.dairy)
+        self.assertEqual(str(product), "Qatiq, Sof Sut, 0.5 litre")
+
+    def test_edit_product(self):
+        url = reverse("product_update", args=[self.milk.pk])
+        self.assertContains(self.client.get(url), "Sut 3.2%")
+        data = self.form_data(name="Sut 2.5%")
+        del data["is_active"]
+        self.assertRedirects(self.client.post(url, data), reverse("product_list"))
+        self.milk.refresh_from_db()
+        self.assertEqual(self.milk.name, "Sut 2.5%")
+        self.assertFalse(self.milk.is_active)
+
+    def test_invalid_data_is_rejected_with_messages(self):
+        response = self.client.post(
+            reverse("product_create"), self.form_data(name="", unit_size="0")
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("name", response.context["form"].errors)
+        self.assertIn("unit_size", response.context["form"].errors)
+
+    def test_duplicate_product_is_rejected(self):
+        self.client.post(reverse("product_create"), self.form_data())
+        response = self.client.post(reverse("product_create"), self.form_data())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Product.objects.filter(name="Qatiq").count(), 1)
