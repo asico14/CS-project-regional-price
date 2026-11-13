@@ -1,9 +1,11 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.utils import timezone
 
 from locations.models import City, Store
 
@@ -97,3 +99,24 @@ class PriceModelTests(TestCase):
             self.milk.delete()
         with self.assertRaises(ProtectedError):
             self.store.delete()
+
+    def test_promo_is_active_until_its_end_date(self):
+        today = timezone.localdate()
+        regular = self.add_price(12000)
+        open_ended = Price(product=self.milk, store=self.store, amount=1, is_promo=True)
+        running = Price(is_promo=True, promo_ends=today)
+        finished = Price(is_promo=True, promo_ends=today - timedelta(days=1))
+        self.assertFalse(regular.is_active_promo)
+        self.assertTrue(open_ended.is_active_promo)
+        self.assertTrue(running.is_active_promo)
+        self.assertFalse(finished.is_active_promo)
+
+    def test_end_date_requires_promo_flag(self):
+        price = Price(
+            product=self.milk,
+            store=self.store,
+            amount=10000,
+            promo_ends=timezone.localdate(),
+        )
+        with self.assertRaises(ValidationError):
+            price.full_clean()

@@ -36,7 +36,7 @@ Requirements: Docker with Docker Compose, and a Telegram bot token from
    ```bash
    docker compose exec web python manage.py createsuperuser
    ```
-5. (Optional) Load demo data — cities, stores, categories and products:
+5. (Optional) Load demo data — cities, stores, products, 30 days of prices, promotions:
    ```bash
    docker compose exec web python manage.py seed_demo
    ```

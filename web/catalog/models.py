@@ -90,6 +90,10 @@ class Price(models.Model):
     # Price in so'm for one item of the product.
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     recorded_at = models.DateTimeField(default=timezone.now)
+    # A promotion is a price row marked as promo, optionally with the
+    # last day on which the promo price is valid.
+    is_promo = models.BooleanField(default=False)
+    promo_ends = models.DateField(null=True, blank=True)
 
     objects = PriceQuerySet.as_manager()
 
@@ -110,6 +114,19 @@ class Price(models.Model):
 
     def __str__(self):
         return f"{self.product} @ {self.store}: {self.amount} so'm"
+
+    @property
+    def is_active_promo(self):
+        """True while the promotion is still running."""
+        if not self.is_promo:
+            return False
+        return self.promo_ends is None or self.promo_ends >= timezone.localdate()
+
+    def clean(self):
+        if self.promo_ends and not self.is_promo:
+            raise ValidationError(
+                {"promo_ends": "Only a promo price can have an end date."}
+            )
 
     def save(self, *args, **kwargs):
         if not self._state.adding:

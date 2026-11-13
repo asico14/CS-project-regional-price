@@ -6,13 +6,16 @@ The command is safe to run many times: it only creates what is missing.
 All stores and prices are invented for demonstration.
 """
 
+import random
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 from django.utils.text import slugify
 
-from catalog.models import Category, Product
+from catalog.models import Category, Price, Product
 from locations.models import City, District, Store
 
 # city name -> district names
@@ -65,19 +68,30 @@ CATALOG = {
     ],
 }
 
+HISTORY_DAYS = 30
+# Fixed seed: every run of the command generates the same demo prices.
+RANDOM_SEED = 2026
+
+
+def round_price(value):
+    """Round to 100 so'm, like real shelf prices."""
+    return Decimal(max(100, round(value / 100) * 100))
+
 
 class Command(BaseCommand):
-    help = "Create demo cities, districts, stores, categories and products."
+    help = "Create demo locations, catalog, price history and promotions."
 
     @transaction.atomic
     def handle(self, *args, **options):
         stores = self.seed_locations()
         products = self.seed_catalog()
+        self.seed_prices(stores, products)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Demo data ready: {City.objects.count()} cities, "
                 f"{len(stores)} stores, {Category.objects.count()} categories, "
-                f"{len(products)} products."
+                f"{len(products)} products, {Price.objects.count()} prices "
+                f"({Price.objects.filter(is_promo=True).count()} promotions)."
             )
         )
 
@@ -121,3 +135,61 @@ class Command(BaseCommand):
                 )
                 products[product] = base_price
         return products
+
+    def seed_prices(self, stores, products):
+        """Generate HISTORY_DAYS of price history and a few promotions.
+
+        Prices are append-only, so history is generated only once: if
+        the table already has rows, nothing is added.
+        """
+        if Price.objects.exists():
+            self.stdout.write("Prices already exist - history not generated again.")
+            return
+
+        rng = random.Random(RANDOM_SEED)
+        now = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0)
+        today = timezone.localdate()
+        rows = []
+        for store in stores:
+            # Every store is a little cheaper or more expensive overall.
+            store_factor = rng.uniform(0.93, 1.08)
+            for product, base_price in products.items():
+                # Not every store sells every product.
+                if rng.random() < 0.12:
+                    continue
+                amount = round_price(base_price * store_factor * rng.uniform(0.97, 1.03))
+                rows.append(
+                    Price(
+                        product=product,
+                        store=store,
+                        amount=amount,
+                        recorded_at=now - timedelta(days=HISTORY_DAYS),
+                    )
+                )
+                # A new row is added only on days when the price changes.
+                for days_ago in range(HISTORY_DAYS - 1, 0, -1):
+                    if rng.random() < 0.12:
+                        changed = round_price(float(amount) * rng.uniform(0.95, 1.07))
+                        if changed != amount:
+                            amount = changed
+                            rows.append(
+                                Price(
+                                    product=product,
+                                    store=store,
+                                    amount=amount,
+                                    recorded_at=now - timedelta(days=days_ago),
+                                )
+                            )
+                # Some products are on promotion right now.
+                if rng.random() < 0.08:
+                    rows.append(
+                        Price(
+                            product=product,
+                            store=store,
+                            amount=round_price(float(amount) * rng.uniform(0.75, 0.9)),
+                            recorded_at=now,
+                            is_promo=True,
+                            promo_ends=today + timedelta(days=rng.randint(3, 7)),
+                        )
+                    )
+        Price.objects.bulk_create(rows)

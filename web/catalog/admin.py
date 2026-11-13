@@ -21,8 +21,8 @@ class ProductAdmin(admin.ModelAdmin):
 class PriceAdmin(admin.ModelAdmin):
     """Prices can be added and viewed here, but never edited or deleted."""
 
-    list_display = ("product", "store", "amount", "recorded_at")
-    list_filter = ("store__city", "store")
+    list_display = ("product", "store", "amount", "is_promo", "promo_ends", "recorded_at")
+    list_filter = ("is_promo", "store__city", "store")
     search_fields = ("product__name", "store__name")
     date_hierarchy = "recorded_at"
     autocomplete_fields = ("product", "store")
