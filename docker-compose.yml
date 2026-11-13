@@ -1,0 +1,36 @@
+# Two services sharing one SQLite database through the "data" volume:
+#   web    - Django admin / site (http://localhost:8000)
+#   worker - Telegram bot (python-telegram-bot, long polling)
+
+services:
+  web:
+    build: ./web
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/db.sqlite3
+    volumes:
+      - data:/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  worker:
+    build: ./worker
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/db.sqlite3
+    volumes:
+      - data:/data
+    # Start only after the web service has migrated the database.
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  data:
