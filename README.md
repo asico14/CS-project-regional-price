@@ -9,7 +9,7 @@ A Django-managed Telegram channel platform for the Fergana Valley region
 save money through promotions, price tracking, price comparison,
 product reviews, life hacks, and store news.
 
-**Status:** In development (Week 2 of 8) — Docker Compose skeleton ready.
+**Status:** In development (Week 2 of 8) — Parts 1–6 done (Docker skeleton, apps, location and catalog models).
 
 ## Stack
 - Python 3.11+
