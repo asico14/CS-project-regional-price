@@ -218,3 +218,10 @@ class ProductDetailTests(StaffTestCase):
     def test_unknown_product_is_404(self):
         response = self.client.get(reverse("product_detail", args=[99999]))
         self.assertEqual(response.status_code, 404)
+
+    def test_chart_data_is_embedded_only_when_there_is_history(self):
+        self.assertNotContains(self.client.get(self.url), "history-chart")
+        Price.objects.create(product=self.milk, store=self.baraka, amount=13000)
+        response = self.client.get(self.url)
+        self.assertContains(response, 'id="history-data"')
+        self.assertEqual(response.context["history"][0]["data"][0]["y"], 13000)

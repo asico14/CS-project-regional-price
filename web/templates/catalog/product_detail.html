@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ product.name }}{% endblock %}
 {% block content %}
 <p><a href="{% url 'product_list' %}">← Products</a></p>
@@ -45,5 +46,18 @@
 </div>
 {% else %}
 <p class="muted">No prices have been entered for this product{% if city %} in {{ city.name }}{% endif %} yet.</p>
+{% endif %}
+
+<h2>Price history, last {{ history_days }} days</h2>
+{% if history %}
+<div class="chart-box">
+  <canvas id="history-chart" role="img" aria-label="Line chart of the price of {{ product.name }} in each store over the last {{ history_days }} days"></canvas>
+</div>
+<p class="muted">Click a store in the legend to hide or show its line.</p>
+{{ history|json_script:"history-data" }}
+<script src="{% static 'catalog/vendor/chart.umd.js' %}"></script>
+<script src="{% static 'catalog/history_chart.js' %}"></script>
+{% else %}
+<p class="muted">There is no price history to draw yet.</p>
 {% endif %}
 {% endblock %}

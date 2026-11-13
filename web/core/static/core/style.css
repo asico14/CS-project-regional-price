@@ -90,3 +90,5 @@ tr.cheapest td { background: var(--good); }
 .messages li { padding: 8px 12px; border-radius: 6px; background: var(--good); margin-bottom: 6px; }
 .messages li.error { background: var(--bad); }
 .pagination { display: flex; gap: 12px; align-items: center; margin: 12px 0; }
+
+.chart-box { position: relative; height: 380px; padding: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }

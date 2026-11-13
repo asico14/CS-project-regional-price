@@ -13,7 +13,7 @@ from locations.models import City, Store
 
 from .forms import ProductForm
 from .models import Category, Price, Product
-from .services import current_prices
+from .services import HISTORY_DAYS, current_prices, price_history
 
 MAX_PRICE = Decimal("9999999999.99")
 
@@ -64,6 +64,8 @@ class ProductDetailView(StaffRequiredMixin, DetailView):
         context["city"] = city
         context["cities"] = City.objects.all()
         context["rows"] = current_prices(self.object, city=city)
+        context["history"] = price_history(self.object, city=city)
+        context["history_days"] = HISTORY_DAYS
         return context
 
 
