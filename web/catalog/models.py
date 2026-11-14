@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -59,7 +61,9 @@ class Product(models.Model):
         parts = [self.name]
         if self.brand:
             parts.append(self.brand)
-        parts.append(f"{self.unit_size.normalize():f} {self.get_unit_display()}")
+        # Decimal(): the value is a plain number until the row is saved.
+        size = Decimal(str(self.unit_size)).normalize()
+        parts.append(f"{size:f} {self.get_unit_display()}")
         return ", ".join(parts)
 
 

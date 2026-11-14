@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Generate post{% endblock %}
+{% block content %}
+<p><a href="{% url 'post_list' %}">← Posts</a></p>
+<h1>Generate post</h1>
+<p class="muted">The text is built from the current data and saved as a draft. You check and schedule it yourself.</p>
+<div class="generators">
+  {% for generator in generators %}
+  <form method="post" class="form card">
+    {% csrf_token %}
+    <input type="hidden" name="kind" value="{{ generator.kind }}">
+    <h2>{{ generator.heading }}</h2>
+    <p class="muted">{{ generator.description }}</p>
+    {{ generator.form.non_field_errors }}
+    {{ generator.form.as_p }}
+    <button type="submit">Create draft</button>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}

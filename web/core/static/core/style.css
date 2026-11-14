@@ -125,3 +125,8 @@ tr.cheapest td { background: var(--good); }
 .card .number { display: block; font-size: 1.6rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .card.alert { background: var(--bad); border-color: #f1b5b5; }
 td.when { white-space: nowrap; width: 1%; }
+
+.generators { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; align-items: start; }
+.generators .card { color: var(--ink); }
+.generators .card h2 { margin-top: 0; }
+.generators select { width: 100%; }

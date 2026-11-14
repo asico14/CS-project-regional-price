@@ -8,7 +8,8 @@ from core.access import StaffRequiredMixin, staff_required
 from locations.models import City
 
 from .formatting import compose_text, limit_for, telegram_length
-from .forms import PostForm
+from .forms import PostForm, PricePostForm, PromotionPostForm
+from .generators import NothingToPost, generate_price_post, generate_promotion_post
 from .hashtags import build_hashtags
 from .models import Post
 
@@ -90,3 +91,52 @@ def post_preview(request):
             "over": max(0, length - limit),
         }
     )
+
+
+# kind -> (heading, description, form class, function that builds the draft)
+GENERATORS = {
+    "promotion": (
+        "Promotion post",
+        "Lists the promotions that are running now, biggest discounts first.",
+        PromotionPostForm,
+        lambda data, user: generate_promotion_post(
+            data["city"], data["language"], user
+        ),
+    ),
+    "price": (
+        "Price post",
+        "Compares the current price of one product between stores.",
+        PricePostForm,
+        lambda data, user: generate_price_post(
+            data["product"], data["city"], data["language"], user
+        ),
+    ),
+}
+
+
+@staff_required
+def post_generate(request):
+    """Build a draft post from the data and open it for review.
+
+    A generated post is never published directly: it is saved as a
+    draft so that a person reads it before it is scheduled.
+    """
+    chosen = request.POST.get("kind") if request.method == "POST" else None
+    generators = []
+    for kind, (heading, description, form_class, build) in GENERATORS.items():
+        form = form_class(request.POST if kind == chosen else None, prefix=kind)
+        if kind == chosen and form.is_valid():
+            try:
+                draft = build(form.cleaned_data, request.user)
+            except NothingToPost as error:
+                form.add_error(None, str(error))
+            else:
+                draft.save()
+                messages.success(
+                    request, "Draft created. Check the text, then schedule it."
+                )
+                return redirect("post_update", pk=draft.pk)
+        generators.append(
+            {"kind": kind, "heading": heading, "description": description, "form": form}
+        )
+    return render(request, "posts/post_generate.html", {"generators": generators})

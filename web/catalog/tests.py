@@ -28,6 +28,10 @@ class CatalogModelTests(TestCase):
         self.assertEqual(str(self.dairy), "Sut mahsulotlari")
         self.assertEqual(str(milk), "Sut 3.2%, Nestle, 0.9 litre")
 
+    def test_str_works_before_saving(self):
+        self.assertEqual(str(Product(name="Non", unit_size=2)), "Non, 2 piece")
+        self.assertEqual(str(Product(name="Non", unit_size="0.50")), "Non, 0.5 piece")
+
     def test_defaults(self):
         eggs = Product.objects.create(name="Tuxum", category=self.dairy)
         eggs.refresh_from_db()

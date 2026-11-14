@@ -1,6 +1,9 @@
 from django import forms
 from django.utils import timezone
 
+from catalog.models import Product
+from locations.models import City
+
 from .formatting import compose_text, limit_for, telegram_length
 from .hashtags import build_hashtags
 from .models import Post
@@ -105,3 +108,21 @@ class PostForm(forms.ModelForm):
         if commit:
             post.save()
         return post
+
+
+class GeneratorForm(forms.Form):
+    """Fields shared by all "generate a post" forms."""
+
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(), required=False, empty_label="Whole valley"
+    )
+    language = forms.ChoiceField(choices=Post.Language.choices, initial="uz")
+
+
+class PromotionPostForm(GeneratorForm):
+    pass
+
+
+class PricePostForm(GeneratorForm):
+    product = forms.ModelChoiceField(queryset=Product.objects.filter(is_active=True))
+    field_order = ["product", "city", "language"]
