@@ -6,7 +6,7 @@ from .models import Post
 @admin.register(Post)
 class PostAdmin(admin.ModelAdmin):
     list_display = ("title", "rubric", "language", "status", "scheduled_at", "published_at")
-    list_filter = ("status", "rubric", "language", "city")
+    list_filter = ("status", "rubric", "language", "comments_enabled", "city")
     search_fields = ("title", "text")
     date_hierarchy = "created_at"
     readonly_fields = (

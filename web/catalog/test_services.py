@@ -117,3 +117,9 @@ class PriceHistoryTests(PriceTestCase):
 
     def test_no_history(self):
         self.assertEqual(price_history(self.milk), [])
+
+    def test_price_dated_in_the_future_is_not_drawn(self):
+        self.price(self.baraka, 12000, days_ago=2)
+        self.price(self.baraka, 99000, days_ago=-3)
+        (line,) = price_history(self.milk)
+        self.assertEqual([point["y"] for point in line["data"]], [12000, 12000])

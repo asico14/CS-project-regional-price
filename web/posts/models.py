@@ -48,6 +48,10 @@ class Post(models.Model):
         related_name="posts",
     )
 
+    # Comments live in the discussion group linked to the channel.
+    # When this is off, the worker closes the comments of the post.
+    comments_enabled = models.BooleanField(default=True)
+
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.DRAFT
     )

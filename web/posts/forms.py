@@ -41,10 +41,16 @@ class PostForm(forms.ModelForm):
             "title",
             "text",
             "photo",
+            "comments_enabled",
             "status",
             "scheduled_at",
         ]
         widgets = {"text": forms.Textarea(attrs={"rows": 10})}
+        labels = {"comments_enabled": "Allow comments"}
+        help_texts = {
+            "comments_enabled": "Works when the channel has a linked discussion "
+            "group and the bot is an administrator there.",
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

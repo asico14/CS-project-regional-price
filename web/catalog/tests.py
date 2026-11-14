@@ -63,7 +63,7 @@ class PriceModelTests(TestCase):
         category = Category.objects.create(name="Sut mahsulotlari", slug="sut")
         city = City.objects.create(name="Qo'qon", slug="qoqon")
         self.milk = Product.objects.create(name="Sut", category=category)
-        self.store = Store.objects.create(name="Korzinka", city=city)
+        self.store = Store.objects.create(name="Baraka", city=city)
 
     def add_price(self, amount):
         return Price.objects.create(product=self.milk, store=self.store, amount=amount)
@@ -124,3 +124,7 @@ class PriceModelTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             price.full_clean()
+
+    def test_str(self):
+        price = self.add_price(12000)
+        self.assertEqual(str(price), "Sut, 1 piece @ Baraka (Qo'qon): 12000 so'm")

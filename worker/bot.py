@@ -6,7 +6,10 @@ It uses the same Django code and the same SQLite database (shared
 
 * answers a few bot commands (/start, /ping, /status);
 * every POLL_SECONDS looks for scheduled posts whose time has come
-  and publishes them to the channel (see web/posts/scheduler.py).
+  and publishes them to the channel (see web/posts/scheduler.py);
+* closes the comments of posts saved with "Allow comments" off, by
+  deleting their automatic copy in the linked discussion group
+  (see web/posts/comments.py).
 """
 
 import asyncio
@@ -36,15 +39,25 @@ django.setup()
 from django.db import close_old_connections  # noqa: E402
 from telegram import Update  # noqa: E402
 from telegram.constants import ParseMode  # noqa: E402
-from telegram.error import RetryAfter  # noqa: E402
-from telegram.ext import Application, CommandHandler, ContextTypes  # noqa: E402
+from telegram.error import RetryAfter, TelegramError  # noqa: E402
+from telegram.ext import (  # noqa: E402
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
+from posts import comments  # noqa: E402
 from posts.models import Post  # noqa: E402
 from posts.publishing import RetryLater, build_message  # noqa: E402
 from posts.scheduler import run_once  # noqa: E402
 
 POLL_SECONDS = int(os.environ.get("WORKER_POLL_SECONDS", "30"))
 SEND_TIMEOUT = 60
+# How many times (one second apart) to ask again about a copy that
+# arrived before the worker saved the message id of its post.
+COMMENT_WAIT_ATTEMPTS = 15
 
 CITIES = ["Qo'qon", "Farg'ona", "Andijon", "Namangan", "Marg'ilon"]
 
@@ -135,6 +148,52 @@ async def scheduler_loop(application: Application, channel_id: str) -> None:
         await asyncio.sleep(POLL_SECONDS)
 
 
+def comment_decision(channel_message_id: int) -> str:
+    """Blocking database lookup; called through asyncio.to_thread."""
+    close_old_connections()
+    try:
+        return comments.decide(channel_message_id)
+    finally:
+        close_old_connections()
+
+
+async def on_discussion_copy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Telegram copied a channel post into the discussion group."""
+    message = update.effective_message
+    channel_message_id = getattr(message.forward_origin, "message_id", None)
+    if channel_message_id is None:
+        return
+
+    action = comments.WAIT
+    for _ in range(COMMENT_WAIT_ATTEMPTS):
+        action = await asyncio.to_thread(comment_decision, channel_message_id)
+        if action != comments.WAIT:
+            break
+        await asyncio.sleep(1)
+
+    if action != comments.CLOSE:
+        return
+    try:
+        await message.delete()
+        logger.info("Comments closed for channel message %s", channel_message_id)
+    except TelegramError as error:
+        logger.error(
+            "Could not close comments for channel message %s: %s. Is the bot an "
+            "administrator of the discussion group with the right to delete messages?",
+            channel_message_id,
+            error,
+        )
+
+
+def discussion_filter(group: str):
+    """Automatic copies of channel posts in the given discussion group."""
+    if group.lstrip("-").isdigit():
+        chat = filters.Chat(chat_id=int(group))
+    else:
+        chat = filters.Chat(username=group.lstrip("@"))
+    return chat & filters.IS_AUTOMATIC_FORWARD
+
+
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     channel_id = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
@@ -161,6 +220,16 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("status", status))
+
+    group = os.environ.get("TELEGRAM_DISCUSSION_GROUP_ID", "").strip()
+    if group:
+        application.add_handler(MessageHandler(discussion_filter(group), on_discussion_copy))
+        logger.info("Comment control is on for discussion group %s", group)
+    else:
+        logger.info(
+            "TELEGRAM_DISCUSSION_GROUP_ID is not set: comments cannot be switched "
+            "off per post."
+        )
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
