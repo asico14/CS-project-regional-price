@@ -13,6 +13,17 @@ with one UPDATE statement that only matches a post that is still
 The database runs this statement atomically, so when two workers try,
 exactly one of them changes a row. The other sees "0 rows changed" and
 leaves the post alone.
+
+Status transitions made here (and nowhere else):
+
+    scheduled  -> publishing   claim_post()       a worker takes the post
+    publishing -> published    mark_published()   Telegram accepted it
+    publishing -> failed       mark_failed()      it cannot be sent / error
+    publishing -> scheduled    release_post()     Telegram said "retry later"
+    publishing -> failed       fail_stuck_posts() the worker died meanwhile
+
+Each of them only matches a post that is currently "publishing", so a
+finished post can never be changed by a late or repeated call.
 """
 
 import logging
@@ -21,6 +32,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from .models import Post
+from .publishing import PublishError, RetryLater
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +77,13 @@ def mark_failed(post, error):
     )
 
 
+def release_post(post):
+    """Give a claimed post back: nothing was sent, try again next pass."""
+    Post.objects.filter(pk=post.pk, status=Post.Status.PUBLISHING).update(
+        status=Post.Status.SCHEDULED, claimed_at=None
+    )
+
+
 def fail_stuck_posts(now=None):
     """Posts left in "publishing" by a worker that died become "failed".
 
@@ -81,7 +100,9 @@ def run_once(send, now=None):
     """One pass of the worker: publish every post that is due.
 
     `send(post)` must send the post to the channel and return the
-    Telegram message id, or raise an exception. Returns the number of
+    Telegram message id. It may raise PublishError (the post cannot be
+    sent as it is), RetryLater (nothing was sent, try again) or any
+    other exception (treated as a failure). Returns the number of
     posts published in this pass.
     """
     now = now or timezone.now()
@@ -96,9 +117,17 @@ def run_once(send, now=None):
             continue
         try:
             message_id = send(post)
+        except RetryLater as error:
+            logger.warning("Post %s postponed: %s", post.pk, error)
+            release_post(post)
+            # Telegram is limiting us: stop this pass, try again later.
+            break
+        except PublishError as error:
+            logger.warning("Post %s cannot be published: %s", post.pk, error)
+            mark_failed(post, error)
         except Exception as error:  # one bad post must not stop the others
             logger.exception("Post %s failed", post.pk)
-            mark_failed(post, error)
+            mark_failed(post, f"{type(error).__name__}: {error}")
         else:
             mark_published(post, message_id)
             published += 1

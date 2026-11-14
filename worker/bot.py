@@ -35,11 +35,12 @@ django.setup()
 
 from django.db import close_old_connections  # noqa: E402
 from telegram import Update  # noqa: E402
+from telegram.constants import ParseMode  # noqa: E402
+from telegram.error import RetryAfter  # noqa: E402
 from telegram.ext import Application, CommandHandler, ContextTypes  # noqa: E402
 
-from posts.formatting import compose_text  # noqa: E402
-from posts.hashtags import hashtags_for_post  # noqa: E402
 from posts.models import Post  # noqa: E402
+from posts.publishing import RetryLater, build_message  # noqa: E402
 from posts.scheduler import run_once  # noqa: E402
 
 POLL_SECONDS = int(os.environ.get("WORKER_POLL_SECONDS", "30"))
@@ -83,17 +84,37 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"Worker is running, {text}.")
 
 
+async def send_to_channel(bot, channel_id, message):
+    """Send a built message: a photo with a caption, or a text message."""
+    if message.kind == "photo":
+        with open(message.photo_path, "rb") as photo:
+            return await bot.send_photo(
+                chat_id=channel_id,
+                photo=photo,
+                caption=message.html,
+                parse_mode=ParseMode.HTML,
+            )
+    return await bot.send_message(
+        chat_id=channel_id, text=message.html, parse_mode=ParseMode.HTML
+    )
+
+
 def publish_due_posts(bot, channel_id, loop) -> int:
     """One scheduler pass. Runs in a worker thread, not in the event loop."""
 
     def send(post):
-        text = compose_text(post.title, post.text, hashtags_for_post(post))
+        # Raises PublishError if the post cannot be sent as it is.
+        message = build_message(post)
         # The bot is asynchronous: hand the call to the event loop and
         # wait here for the answer.
         future = asyncio.run_coroutine_threadsafe(
-            bot.send_message(chat_id=channel_id, text=text), loop
+            send_to_channel(bot, channel_id, message), loop
         )
-        return future.result(timeout=SEND_TIMEOUT).message_id
+        try:
+            return future.result(timeout=SEND_TIMEOUT).message_id
+        except RetryAfter as error:
+            # Flood control: Telegram sent nothing and says when to retry.
+            raise RetryLater(f"Telegram asks to retry in {error.retry_after} s") from error
 
     close_old_connections()
     try:

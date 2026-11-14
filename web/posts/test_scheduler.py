@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from .models import Post
+from .publishing import PublishError, RetryLater
 from .scheduler import (
     STUCK_AFTER,
     claim_post,
@@ -144,7 +145,7 @@ class RunOnceTests(SchedulerTestCase):
         with self.assertLogs("posts.scheduler", level="ERROR"):
             self.assertEqual(run_once(channel.send, self.now), 1)
         bad = Post.objects.get(title="bad")
-        self.assertEqual((bad.status, bad.error_message), ("failed", "Telegram refused bad"))
+        self.assertEqual((bad.status, bad.error_message), ("failed", "RuntimeError: Telegram refused bad"))
         self.assertIsNone(bad.published_at)
         self.assertEqual(self.statuses()["good"], "published")
         # A failed post is not retried by itself.
@@ -171,3 +172,51 @@ class StuckPostTests(SchedulerTestCase):
         self.assertIn("Check the channel", stuck.error_message)
         self.assertEqual(self.statuses()["in progress"], "publishing")
         self.assertEqual(fail_stuck_posts(self.now), 0)
+
+
+class TransitionTests(SchedulerTestCase):
+    def test_retry_later_puts_the_post_back_and_stops_the_pass(self):
+        self.post("first", minutes=-9)
+        self.post("second", minutes=-1)
+        calls = []
+
+        def limited(post):
+            calls.append(post.title)
+            raise RetryLater("Flood control: retry in 30 s")
+
+        with self.assertLogs("posts.scheduler", level="WARNING"):
+            self.assertEqual(run_once(limited, self.now), 0)
+        self.assertEqual(calls, ["first"])
+        first = Post.objects.get(title="first")
+        self.assertEqual((first.status, first.claimed_at, first.error_message), ("scheduled", None, ""))
+        # Next pass, Telegram accepts again: both go out, in order.
+        channel = FakeChannel()
+        self.assertEqual(run_once(channel.send, self.now), 2)
+        self.assertEqual(channel.sent, ["first", "second"])
+
+    def test_publish_error_message_is_kept_for_staff(self):
+        self.post("too long")
+
+        def refuse(post):
+            raise PublishError("Shorten the text.")
+
+        with self.assertLogs("posts.scheduler", level="WARNING"):
+            run_once(refuse, self.now)
+        post = Post.objects.get()
+        self.assertEqual((post.status, post.error_message), ("failed", "Shorten the text."))
+
+    def test_finished_posts_are_not_changed_by_late_calls(self):
+        from .scheduler import mark_failed, mark_published, release_post
+
+        published = self.post("published", status="published", telegram_message_id=7)
+        draft = self.post("draft", status="draft")
+        for post in (published, draft):
+            mark_failed(post, "late error")
+            mark_published(post, 99)
+            release_post(post)
+        published.refresh_from_db()
+        self.assertEqual(
+            (published.status, published.telegram_message_id, published.error_message),
+            ("published", 7, ""),
+        )
+        self.assertEqual(self.statuses()["draft"], "draft")
