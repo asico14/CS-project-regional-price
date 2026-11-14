@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{% if post %}Edit post{% else %}Write post{% endif %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'post_list' %}">← Posts</a></p>
+<h1>{% if post %}Edit post{% else %}Write post{% endif %}</h1>
+{% if post.status == 'failed' %}
+<ul class="messages"><li class="error">Publishing failed: {{ post.error_message|default:"unknown error" }}</li></ul>
+{% endif %}
+<div class="editor">
+  <form method="post" enctype="multipart/form-data" class="form" id="post-form"
+        data-preview-url="{% url 'post_preview' %}"
+        data-photo-url="{% if post.photo %}{{ post.photo.url }}{% endif %}">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {{ form.as_p }}
+    <button type="submit">Save</button>
+    <a class="button secondary" href="{% url 'post_list' %}">Cancel</a>
+  </form>
+
+  <aside class="preview" aria-label="Preview">
+    <h2>Preview</h2>
+    <div class="tg-chat">
+      <div class="tg-bubble">
+        <img id="preview-photo" alt="" hidden>
+        <div class="tg-body">
+          <div id="preview-title" class="tg-title"></div>
+          <div id="preview-text" class="tg-text"></div>
+          <div id="preview-hashtags" class="tg-hashtags"></div>
+          <div id="preview-empty" class="muted">Start typing to see the post.</div>
+        </div>
+      </div>
+    </div>
+    <p id="preview-counter" class="counter" role="status"></p>
+  </aside>
+</div>
+<script src="{% static 'posts/preview.js' %}"></script>
+{% endblock %}

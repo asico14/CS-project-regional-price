@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Posts{% endblock %}
+{% block content %}
+<h1>Posts</h1>
+<form method="get" class="toolbar">
+  <select name="status" aria-label="Status" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    {% for value, label in statuses %}
+    <option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit">Filter</button></noscript>
+  <span class="spacer"></span>
+  <a class="button" href="{% url 'post_create' %}">Write post</a>
+</form>
+
+{% if posts %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Title</th><th>Rubric</th><th>Lang</th><th>Status</th><th>Publish at</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for post in posts %}
+      <tr>
+        <td>{{ post.title }}{% if post.photo %} <span class="tag">photo</span>{% endif %}</td>
+        <td>{{ post.get_rubric_display }}</td>
+        <td>{{ post.language }}</td>
+        <td>
+          <span class="tag{% if post.status == 'failed' %} off{% elif post.status == 'published' %} best{% elif post.status == 'scheduled' %} promo{% endif %}">{{ post.get_status_display }}</span>
+          {% if post.status == 'failed' and post.error_message %}<div class="muted">{{ post.error_message|truncatechars:120 }}</div>{% endif %}
+        </td>
+        <td>
+          {% if post.published_at %}{{ post.published_at|date:"d.m.Y H:i" }}
+          {% elif post.scheduled_at %}{{ post.scheduled_at|date:"d.m.Y H:i" }}
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+        <td>{% if post.status == 'draft' or post.status == 'scheduled' or post.status == 'failed' %}<a href="{% url 'post_update' post.pk %}">Edit</a>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "pagination.html" %}
+{% else %}
+<p class="muted">No posts here yet.</p>
+{% endif %}
+{% endblock %}

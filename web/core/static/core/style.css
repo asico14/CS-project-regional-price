@@ -92,3 +92,24 @@ tr.cheapest td { background: var(--good); }
 .pagination { display: flex; gap: 12px; align-items: center; margin: 12px 0; }
 
 .chart-box { position: relative; height: 380px; padding: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
+
+/* Post editor with Telegram-style preview */
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); gap: 24px; align-items: start; }
+.editor textarea, .editor input[type="text"] { width: 100%; }
+.editor .form div > label { display: inline; font-weight: 400; margin-right: 12px; }
+.preview { position: sticky; top: 12px; }
+.preview h2 { margin-top: 0; }
+.tg-chat { padding: 14px; border-radius: 10px; background: #c9d8c5; }
+.tg-bubble { max-width: 100%; overflow: hidden; border-radius: 12px; background: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); }
+.tg-bubble img { display: block; width: 100%; max-height: 260px; object-fit: cover; }
+.tg-body { padding: 8px 12px 10px; font-size: 0.95rem; overflow-wrap: anywhere; }
+.tg-title { font-weight: 700; }
+.tg-title:not(:empty), .tg-text:not(:empty) { margin-bottom: 0.9em; }
+.tg-text { white-space: pre-wrap; }
+.tg-hashtags { color: #1d6fb8; }
+.counter { margin: 8px 0 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+.counter.over { color: #b42318; font-weight: 600; }
+@media (max-width: 800px) {
+  .editor { grid-template-columns: minmax(0, 1fr); }
+  .preview { position: static; }
+}

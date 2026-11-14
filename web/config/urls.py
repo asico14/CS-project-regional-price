@@ -26,6 +26,7 @@ urlpatterns = [
     path("", include("catalog.urls")),
     path("", include("locations.urls")),
     path("", include("baskets.urls")),
+    path("", include("posts.urls")),
 ]
 
 # Serve uploaded photos from Django while developing (DEBUG only).
