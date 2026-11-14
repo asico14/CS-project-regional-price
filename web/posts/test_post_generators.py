@@ -5,14 +5,17 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from baskets.models import Basket, BasketItem
 from catalog.models import Category, Price, Product
 from locations.models import City, Store
 
 from .formatting import TEXT_LIMIT, compose_text, telegram_length
 from .generators import (
     NothingToPost,
+    generate_basket_post,
     generate_price_post,
     generate_promotion_post,
+    generate_store_post,
 )
 from .hashtags import hashtags_for_post
 from .models import Post
@@ -168,6 +171,106 @@ class PricePostTests(GeneratorTestCase):
             generate_price_post(self.milk)
 
 
+class BasketPostTests(GeneratorTestCase):
+    def setUp(self):
+        super().setUp()
+        self.basket = Basket.objects.create(name="Haftalik savat")
+        BasketItem.objects.create(basket=self.basket, product=self.sugar, quantity=2)
+        BasketItem.objects.create(basket=self.basket, product=self.milk, quantity="1.5")
+
+    def fill(self, store, sugar, milk):
+        self.price(self.sugar, store, sugar)
+        self.price(self.milk, store, milk)
+
+    def test_ranks_complete_stores(self):
+        self.fill(self.baraka, sugar=12000, milk=10000)  # 24000 + 15000
+        self.fill(self.arzon, sugar=11000, milk=10000)  # 22000 + 15000
+        self.price(self.sugar, self.dehqon, 5000)
+        post = generate_basket_post(self.basket, self.kokand, "uz", self.staff)
+        self.assertEqual(
+            post.title, "“Haftalik savat” savati: Qo'qon shahrida qayerda arzon?"
+        )
+        self.assertEqual(
+            post.text,
+            "Savatda: 2 × Shakar, 1.5 × Sut\n"
+            "\n"
+            "1. Arzon — 37 000 so'm\n"
+            "2. Baraka — 39 000 so'm (+2 000)\n"
+            "\n"
+            "Eng arzon do'konda eng qimmatiga nisbatan 2 000 so'm tejaysiz.\n"
+            "\n"
+            f"Narxlar {self.today.strftime('%d.%m.%Y')} kuni tekshirilgan.",
+        )
+        self.assertEqual((post.rubric, post.city), ("comparison", self.kokand))
+        self.assertEqual(hashtags_for_post(post), ["#taqqoslash", "#Qoqon"])
+
+    def test_incomplete_stores_are_counted_but_not_ranked(self):
+        self.fill(self.baraka, sugar=12000, milk=10000)
+        self.price(self.sugar, self.arzon, 1000)
+        self.price(self.sugar, self.dehqon, 1000)
+        post = generate_basket_post(self.basket, language="ru")
+        self.assertEqual(post.title, "Корзина «Haftalik savat»: где дешевле?")
+        self.assertIn("1. Baraka (Qo'qon) — 39 000 сум", post.text)
+        self.assertNotIn("Arzon", post.text)
+        self.assertIn("2 магазина не вошли в список", post.text)
+        # One ranked store: there is nothing to compare the saving with.
+        self.assertNotIn("экономите", post.text)
+
+    def test_no_complete_store(self):
+        self.price(self.sugar, self.baraka, 12000)
+        with self.assertRaises(NothingToPost):
+            generate_basket_post(self.basket)
+        with self.assertRaises(NothingToPost):
+            generate_basket_post(Basket.objects.create(name="Bo'sh"))
+
+
+class StorePostTests(GeneratorTestCase):
+    def test_announces_store_with_address_and_cheapest_products(self):
+        district = self.kokand.districts.create(name="Markaz")
+        self.baraka.district = district
+        self.baraka.address = "Navoiy ko'chasi, 5"
+        self.baraka.save()
+        self.price(self.sugar, self.baraka, 11000)
+        self.price(self.sugar, self.arzon, 12000)
+        self.price(self.milk, self.baraka, 10000)
+        self.price(self.milk, self.arzon, 9000)
+        post = generate_store_post(self.baraka, "uz", self.staff)
+        self.assertEqual(post.title, "Qo'qon shahrida yangi do'kon: Baraka")
+        self.assertEqual(
+            post.text,
+            "Endi Baraka do'konidagi narxlarni kuzatib boramiz.\n"
+            "\n"
+            "📍 Manzil: Markaz, Navoiy ko'chasi, 5\n"
+            "\n"
+            "2 ta mahsulot narxi allaqachon ma'lum.\n"
+            "\n"
+            "Shahar bo'yicha eng arzoni shu yerda: Shakar\n"
+            "\n"
+            "Qo'shishimiz kerak bo'lgan do'konni bilasizmi? Izohlarda yozing.",
+        )
+        self.assertEqual((post.rubric, post.city), ("store_news", self.kokand))
+
+    def test_store_without_prices_or_address(self):
+        post = generate_store_post(self.baraka, "ru")
+        self.assertEqual(post.title, "Новый магазин в городе Qo'qon: Baraka")
+        for word in ["Адрес", "известн", "дешевле"]:
+            self.assertNotIn(word, post.text)
+
+    def test_only_product_in_town_is_not_called_cheapest(self):
+        self.price(self.sugar, self.baraka, 11000)
+        self.price(self.sugar, self.dehqon, 20000)  # another city
+        self.assertNotIn("eng arzoni", generate_store_post(self.baraka).text)
+
+    def test_ended_promotion_of_a_rival_is_ignored(self):
+        self.price(self.sugar, self.baraka, 11000)
+        self.promo(self.sugar, self.arzon, 5000, ends_in=-1)
+        self.assertNotIn("eng arzoni", generate_store_post(self.baraka).text)
+        self.price(self.sugar, self.arzon, 12000)
+        self.assertIn(
+            "eng arzoni shu yerda: Shakar", generate_store_post(self.baraka).text
+        )
+
+
 class GenerateViewTests(GeneratorTestCase):
     def setUp(self):
         super().setUp()
@@ -183,7 +286,7 @@ class GenerateViewTests(GeneratorTestCase):
     def test_page_shows_a_form_per_generator(self):
         response = self.client.get(self.url)
         kinds = [generator["kind"] for generator in response.context["generators"]]
-        self.assertEqual(kinds[:2], ["promotion", "price"])
+        self.assertEqual(kinds, ["promotion", "price", "basket", "store"])
 
     def test_creates_draft_and_opens_it(self):
         self.promo(self.sugar, self.baraka, 10000)
@@ -201,6 +304,23 @@ class GenerateViewTests(GeneratorTestCase):
             self.url, {"kind": "price", "price-product": self.sugar.pk, "price-language": "uz"}
         )
         self.assertEqual(Post.objects.get().rubric, "price")
+
+    def test_basket_and_store_posts_from_the_page(self):
+        basket = Basket.objects.create(name="Savat")
+        BasketItem.objects.create(basket=basket, product=self.sugar)
+        self.price(self.sugar, self.baraka, 12500)
+        self.client.post(
+            self.url,
+            {"kind": "basket", "basket-basket": basket.pk, "basket-language": "uz"},
+        )
+        self.client.post(
+            self.url,
+            {"kind": "store", "store-store": self.baraka.pk, "store-language": "ru"},
+        )
+        self.assertEqual(
+            sorted(Post.objects.values_list("rubric", "language")),
+            [("comparison", "uz"), ("store_news", "ru")],
+        )
 
     def test_nothing_to_post_is_explained(self):
         response = self.client.post(self.url, {"kind": "promotion", "promotion-language": "uz"})

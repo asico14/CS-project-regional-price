@@ -13,6 +13,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone, translation
 
+from baskets.services import compare_basket
 from catalog.models import Price
 from catalog.services import current_prices
 
@@ -166,3 +167,84 @@ def generate_price_post(product, city=None, language="uz", user=None):
         "date": format_date(timezone.localdate()),
     }
     return build_draft(Post.Rubric.PRICE, "price", language, city, context, items, user)
+
+
+def format_quantity(quantity):
+    """Decimal("2.000") -> "2", Decimal("0.500") -> "0.5"."""
+    return f"{quantity.normalize():f}"
+
+
+def generate_basket_post(basket, city=None, language="uz", user=None):
+    """Draft post ranking the stores by the total price of a basket.
+
+    Only stores that have every product of the basket are ranked; the
+    post says how many stores were left out for that reason.
+    """
+    results = compare_basket(basket, city=city)
+    ranked = [result for result in results if result.complete]
+    if not ranked:
+        raise NothingToPost("No store has prices for every product of this basket.")
+    items = [
+        {
+            "place": result.rank,
+            "store": store_label(result.store, city),
+            "total": format_price(result.total),
+            "extra": format_price(result.extra) if result.extra > 0 else None,
+        }
+        for result in ranked[:MAX_ITEMS]
+    ]
+    saving = ranked[-1].total - ranked[0].total
+    contents = ", ".join(
+        f"{format_quantity(item.quantity)} × {item.product.name}"
+        for item in basket.items.select_related("product")
+    )
+    context = {
+        "basket": basket.name,
+        "city": city.name if city else None,
+        "contents": contents,
+        "saving": format_price(saving) if saving > 0 else None,
+        "skipped": len(results) - len(ranked),
+        "date": format_date(timezone.localdate()),
+    }
+    return build_draft(
+        Post.Rubric.COMPARISON, "basket", language, city, context, items, user
+    )
+
+
+def generate_store_post(store, language="uz", user=None):
+    """Draft post announcing a store whose prices are now tracked."""
+    today = timezone.localdate()
+    city_prices = (
+        Price.objects.current()
+        .filter(store__city=store.city, store__is_active=True)
+        .exclude(is_promo=True, promo_ends__lt=today)
+        .select_related("product")
+    )
+    lowest = {}  # product id -> lowest price in the city
+    stores_with = {}  # product id -> number of stores that sell it
+    own = []
+    for price in city_prices:
+        product_id = price.product_id
+        lowest[product_id] = min(price.amount, lowest.get(product_id, price.amount))
+        stores_with[product_id] = stores_with.get(product_id, 0) + 1
+        if price.store_id == store.pk:
+            own.append(price)
+    # "Cheapest" means something only when another store sells it too.
+    cheapest = sorted(
+        price.product.name
+        for price in own
+        if stores_with[price.product_id] > 1 and price.amount == lowest[price.product_id]
+    )
+    address = ", ".join(
+        part for part in [store.district.name if store.district else "", store.address] if part
+    )
+    context = {
+        "store": store.name,
+        "city": store.city.name,
+        "address": address,
+        "products": len(own),
+        "cheapest": ", ".join(cheapest[:5]),
+    }
+    return build_draft(
+        Post.Rubric.STORE_NEWS, "new_store", language, store.city, context, [], user
+    )

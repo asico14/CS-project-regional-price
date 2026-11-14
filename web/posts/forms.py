@@ -1,8 +1,9 @@
 from django import forms
 from django.utils import timezone
 
+from baskets.models import Basket
 from catalog.models import Product
-from locations.models import City
+from locations.models import City, Store
 
 from .formatting import compose_text, limit_for, telegram_length
 from .hashtags import build_hashtags
@@ -126,3 +127,15 @@ class PromotionPostForm(GeneratorForm):
 class PricePostForm(GeneratorForm):
     product = forms.ModelChoiceField(queryset=Product.objects.filter(is_active=True))
     field_order = ["product", "city", "language"]
+
+
+class BasketPostForm(GeneratorForm):
+    basket = forms.ModelChoiceField(queryset=Basket.objects.all())
+    field_order = ["basket", "city", "language"]
+
+
+class StorePostForm(forms.Form):
+    store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True).select_related("city")
+    )
+    language = forms.ChoiceField(choices=Post.Language.choices, initial="uz")

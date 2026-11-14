@@ -8,8 +8,20 @@ from core.access import StaffRequiredMixin, staff_required
 from locations.models import City
 
 from .formatting import compose_text, limit_for, telegram_length
-from .forms import PostForm, PricePostForm, PromotionPostForm
-from .generators import NothingToPost, generate_price_post, generate_promotion_post
+from .forms import (
+    BasketPostForm,
+    PostForm,
+    PricePostForm,
+    PromotionPostForm,
+    StorePostForm,
+)
+from .generators import (
+    NothingToPost,
+    generate_basket_post,
+    generate_price_post,
+    generate_promotion_post,
+    generate_store_post,
+)
 from .hashtags import build_hashtags
 from .models import Post
 
@@ -110,6 +122,20 @@ GENERATORS = {
         lambda data, user: generate_price_post(
             data["product"], data["city"], data["language"], user
         ),
+    ),
+    "basket": (
+        "Basket comparison post",
+        "Ranks the stores by the total price of a basket.",
+        BasketPostForm,
+        lambda data, user: generate_basket_post(
+            data["basket"], data["city"], data["language"], user
+        ),
+    ),
+    "store": (
+        "New store post",
+        "Announces a store whose prices are now tracked.",
+        StorePostForm,
+        lambda data, user: generate_store_post(data["store"], data["language"], user),
     ),
 }
 
