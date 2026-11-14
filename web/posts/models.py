@@ -7,9 +7,10 @@ from django.utils import timezone
 class Post(models.Model):
     """A post for the Telegram channel.
 
-    Life cycle:  draft -> scheduled -> published
-                                   \\-> failed (can be scheduled again)
+    Life cycle:  draft -> scheduled -> publishing -> published
+                                                \\-> failed (can be scheduled again)
     The worker service publishes scheduled posts when their time comes.
+    "publishing" means a worker has taken the post and is sending it.
     """
 
     class Rubric(models.TextChoices):
@@ -23,6 +24,7 @@ class Post(models.Model):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         SCHEDULED = "scheduled", "Scheduled"
+        PUBLISHING = "publishing", "Publishing"
         PUBLISHED = "published", "Published"
         FAILED = "failed", "Failed"
 
@@ -52,6 +54,7 @@ class Post(models.Model):
     # When the post should go out. Required for scheduled posts.
     scheduled_at = models.DateTimeField(null=True, blank=True)
     # Filled in by the worker.
+    claimed_at = models.DateTimeField(null=True, blank=True, editable=False)
     published_at = models.DateTimeField(null=True, blank=True, editable=False)
     telegram_message_id = models.BigIntegerField(null=True, blank=True, editable=False)
     error_message = models.TextField(blank=True, editable=False)

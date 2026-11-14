@@ -22,7 +22,10 @@ services:
     restart: unless-stopped
 
   worker:
-    build: ./worker
+    # Built from the repository root: the worker uses the Django code in web/.
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
     env_file: .env
     environment:
       DATABASE_PATH: /data/db.sqlite3

@@ -1,16 +1,19 @@
 """Telegram bot worker for the Regional Price & Deals platform.
 
-Runs as its own Docker Compose service and shares the SQLite database
-with the Django web service through the "data" volume.
+Runs as its own Docker Compose service next to the Django web service.
+It uses the same Django code and the same SQLite database (shared
+"data" volume), and does two things:
+
+* answers a few bot commands (/start, /ping, /status);
+* every POLL_SECONDS looks for scheduled posts whose time has come
+  and publishes them to the channel (see web/posts/scheduler.py).
 """
 
+import asyncio
 import logging
 import os
-import sqlite3
 import sys
-
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from pathlib import Path
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -20,24 +23,46 @@ logging.basicConfig(
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("worker")
 
-DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/db.sqlite3")
+# Make the Django project importable and start Django, so the worker
+# can use the models and the scheduler logic of the web service.
+WEB_DIR = os.environ.get("WEB_DIR", str(Path(__file__).resolve().parent.parent / "web"))
+sys.path.insert(0, WEB_DIR)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+import django  # noqa: E402
+
+django.setup()
+
+from django.db import close_old_connections  # noqa: E402
+from telegram import Update  # noqa: E402
+from telegram.ext import Application, CommandHandler, ContextTypes  # noqa: E402
+
+from posts.formatting import compose_text  # noqa: E402
+from posts.hashtags import hashtags_for_post  # noqa: E402
+from posts.models import Post  # noqa: E402
+from posts.scheduler import run_once  # noqa: E402
+
+POLL_SECONDS = int(os.environ.get("WORKER_POLL_SECONDS", "30"))
+SEND_TIMEOUT = 60
 
 CITIES = ["Qo'qon", "Farg'ona", "Andijon", "Namangan", "Marg'ilon"]
 
 
 def database_status() -> str:
     """Describe whether the database shared with the web service is reachable."""
-    if not os.path.exists(DATABASE_PATH):
-        return "database file not found (has the web service run migrations?)"
+    close_old_connections()
     try:
-        # Open read-only: the worker must not create or change the schema.
-        with sqlite3.connect(f"file:{DATABASE_PATH}?mode=ro", uri=True) as conn:
-            (tables,) = conn.execute(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
-            ).fetchone()
-    except sqlite3.Error as error:
+        counts = {
+            status: Post.objects.filter(status=status).count()
+            for status in (Post.Status.SCHEDULED, Post.Status.PUBLISHED, Post.Status.FAILED)
+        }
+    except Exception as error:  # e.g. the web service has not migrated yet
         return f"database error: {error}"
-    return f"database ok ({tables} tables)"
+    finally:
+        close_old_connections()
+    return "database ok ({scheduled} scheduled, {published} published, {failed} failed posts)".format(
+        **counts
+    )
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -53,21 +78,65 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(f"Worker is running, {database_status()}.")
+    # Database calls are blocking, so they run in a separate thread.
+    text = await asyncio.to_thread(database_status)
+    await update.message.reply_text(f"Worker is running, {text}.")
+
+
+def publish_due_posts(bot, channel_id, loop) -> int:
+    """One scheduler pass. Runs in a worker thread, not in the event loop."""
+
+    def send(post):
+        text = compose_text(post.title, post.text, hashtags_for_post(post))
+        # The bot is asynchronous: hand the call to the event loop and
+        # wait here for the answer.
+        future = asyncio.run_coroutine_threadsafe(
+            bot.send_message(chat_id=channel_id, text=text), loop
+        )
+        return future.result(timeout=SEND_TIMEOUT).message_id
+
+    close_old_connections()
+    try:
+        return run_once(send)
+    finally:
+        close_old_connections()
+
+
+async def scheduler_loop(application: Application, channel_id: str) -> None:
+    loop = asyncio.get_running_loop()
+    logger.info("Scheduler started: checking for due posts every %s s", POLL_SECONDS)
+    while True:
+        try:
+            await asyncio.to_thread(publish_due_posts, application.bot, channel_id, loop)
+        except Exception:
+            # Never let one bad pass kill the loop; try again next time.
+            logger.exception("Scheduler pass failed")
+        await asyncio.sleep(POLL_SECONDS)
 
 
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-    if not token:
+    channel_id = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+    if not token or not channel_id:
         logger.error(
-            "TELEGRAM_BOT_TOKEN is not set. Get a token from @BotFather, "
-            "put it in the .env file and restart the worker."
+            "TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID must be set. Get a token "
+            "from @BotFather, add the bot to the channel as an administrator, "
+            "put both values in the .env file and restart the worker."
         )
         sys.exit(1)
 
-    logger.info("Starting worker, %s", database_status())
+    async def on_start(application: Application) -> None:
+        application.bot_data["scheduler"] = asyncio.create_task(
+            scheduler_loop(application, channel_id)
+        )
 
-    application = Application.builder().token(token).build()
+    async def on_stop(application: Application) -> None:
+        application.bot_data["scheduler"].cancel()
+
+    logger.info("Starting worker, %s", database_status())
+    application = (
+        Application.builder().token(token).post_init(on_start).post_stop(on_stop).build()
+    )
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("status", status))

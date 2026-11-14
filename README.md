@@ -22,7 +22,8 @@ product reviews, life hacks, and store news.
 Requirements: Docker with Docker Compose, and a Telegram bot token from
 [@BotFather](https://t.me/BotFather).
 
-1. Create your local settings file and fill in `TELEGRAM_BOT_TOKEN`:
+1. Create your local settings file and fill in `TELEGRAM_BOT_TOKEN` and
+   `TELEGRAM_CHANNEL_ID` (add the bot to the channel as an administrator):
    ```bash
    cp .env.example .env
    ```
@@ -57,8 +58,10 @@ worker/              Telegram bot (python-telegram-bot, long polling)
 ```
 
 - **web** applies migrations on start and serves Django on port 8000.
-- **worker** starts after web is healthy and runs the bot. Without a
-  token it stops with an error message in the logs.
+- **worker** starts after web is healthy. It runs the bot and, every 30
+  seconds, publishes the scheduled posts whose time has come. It uses the
+  Django code from `web/`, so its image is built from the repository root.
+  Without a token and a channel id it stops with an error message in the logs.
 - Both services mount the `data` volume at `/data`, so they use the same
   SQLite file, `/data/db.sqlite3`, and the same uploaded photos, `/data/media`.
 

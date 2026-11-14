@@ -85,6 +85,13 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": DATABASE_PATH,
+        "OPTIONS": {
+            # The web and worker services write to the same file. Wait for
+            # the other one instead of failing with "database is locked",
+            # and use WAL so that readers do not block the writer.
+            "timeout": 20,
+            "init_command": "PRAGMA journal_mode=WAL;",
+        },
     }
 }
 
