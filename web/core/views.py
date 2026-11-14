@@ -3,11 +3,12 @@ from django.http import JsonResponse
 from django.shortcuts import render
 
 from .access import staff_required
+from .dashboard import dashboard_data
 
 
 @staff_required
 def index(request):
-    return render(request, "core/index.html")
+    return render(request, "core/index.html", dashboard_data())
 
 
 def health(request):

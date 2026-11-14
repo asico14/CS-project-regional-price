@@ -45,11 +45,53 @@ msgstr ""
 "Hisobingiz xodim hisobi emas. Administratordan xodim huquqini berishni "
 "so'rang."
 
-msgid "Fergana Valley channel platform"
-msgstr "Farg'ona vodiysi kanali platformasi"
+msgid "Dashboard"
+msgstr "Boshqaruv paneli"
 
-msgid "Manage stores, products and prices for the Telegram channel."
-msgstr "Telegram kanali uchun do'konlar, mahsulotlar va narxlarni boshqaring."
+msgid "active products"
+msgstr "faol mahsulotlar"
+
+msgid "active stores"
+msgstr "faol do'konlar"
+
+msgid "prices entered today"
+msgstr "bugun kiritilgan narxlar"
+
+msgid "running promotions"
+msgstr "amaldagi aksiyalar"
+
+msgid "baskets"
+msgstr "savatlar"
+
+msgid "drafts"
+msgstr "qoralamalar"
+
+msgid "scheduled"
+msgstr "rejalashtirilgan"
+
+msgid "published"
+msgstr "chop etilgan"
+
+msgid "failed"
+msgstr "xatolik bilan"
+
+msgid "Upcoming posts"
+msgstr "Navbatdagi postlar"
+
+msgid "overdue"
+msgstr "kechikkan"
+
+msgid "Nothing is scheduled."
+msgstr "Hech narsa rejalashtirilmagan."
+
+msgid "Write a post"
+msgstr "Post yozish"
+
+msgid "Recent failures"
+msgstr "So'nggi xatolar"
+
+msgid "No failed posts."
+msgstr "Xatolik bilan tugagan postlar yo'q."
 
 #, python-format
 msgid "Promotions in %(city)s"

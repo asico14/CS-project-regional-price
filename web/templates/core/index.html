@@ -1,14 +1,58 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% block content %}
-<h1>{% translate "Fergana Valley channel platform" %}</h1>
-<p>{% translate "Manage stores, products and prices for the Telegram channel." %}</p>
-<ul>
-  <li><a href="{% url 'price_entry' %}">{% translate "Enter prices" %}</a></li>
-  <li><a href="{% url 'product_list' %}">{% translate "Products" %}</a></li>
-  <li><a href="{% url 'store_list' %}">{% translate "Stores" %}</a></li>
-  <li><a href="{% url 'basket_list' %}">{% translate "Baskets" %}</a></li>
-  <li><a href="{% url 'post_list' %}">{% translate "Posts" %}</a></li>
-  <li><a href="{% url 'admin:index' %}">{% translate "Admin" %}</a></li>
-</ul>
+<h1>{% translate "Dashboard" %}</h1>
+
+<div class="cards">
+  <a class="card" href="{% url 'product_list' %}"><span class="number">{{ counts.products }}</span>{% translate "active products" %}</a>
+  <a class="card" href="{% url 'store_list' %}"><span class="number">{{ counts.stores }}</span>{% translate "active stores" %}</a>
+  <a class="card" href="{% url 'price_entry' %}"><span class="number">{{ counts.prices_today }}</span>{% translate "prices entered today" %}</a>
+  <div class="card"><span class="number">{{ counts.promotions }}</span>{% translate "running promotions" %}</div>
+  <a class="card" href="{% url 'basket_list' %}"><span class="number">{{ counts.baskets }}</span>{% translate "baskets" %}</a>
+</div>
+
+<h2>{% translate "Posts" %}</h2>
+<div class="cards">
+  <a class="card" href="{% url 'post_list' %}?status=draft"><span class="number">{{ posts.draft }}</span>{% translate "drafts" %}</a>
+  <a class="card" href="{% url 'post_list' %}?status=scheduled"><span class="number">{{ posts.scheduled }}</span>{% translate "scheduled" %}</a>
+  <a class="card" href="{% url 'post_list' %}?status=published"><span class="number">{{ posts.published }}</span>{% translate "published" %}</a>
+  <a class="card{% if posts.failed %} alert{% endif %}" href="{% url 'post_list' %}?status=failed"><span class="number">{{ posts.failed }}</span>{% translate "failed" %}</a>
+</div>
+
+<h2>{% translate "Upcoming posts" %}</h2>
+{% if upcoming %}
+<div class="table-wrap">
+  <table>
+    <tbody>
+      {% for post in upcoming %}
+      <tr>
+        <td class="when">{{ post.scheduled_at|date:"d.m.Y H:i" }}{% if post.overdue %} <span class="tag off">{% translate "overdue" %}</span>{% endif %}</td>
+        <td><a href="{% url 'post_update' post.pk %}">{{ post.title }}</a></td>
+        <td>{{ post.language }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">{% translate "Nothing is scheduled." %} <a href="{% url 'post_create' %}">{% translate "Write a post" %}</a></p>
+{% endif %}
+
+<h2>{% translate "Recent failures" %}</h2>
+{% if failures %}
+<div class="table-wrap">
+  <table>
+    <tbody>
+      {% for post in failures %}
+      <tr>
+        <td class="when">{{ post.updated_at|date:"d.m.Y H:i" }}</td>
+        <td><a href="{% url 'post_update' post.pk %}">{{ post.title }}</a><div class="muted">{{ post.error_message|default:"—"|truncatechars:200 }}</div></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="muted">{% translate "No failed posts." %}</p>
+{% endif %}
 {% endblock %}

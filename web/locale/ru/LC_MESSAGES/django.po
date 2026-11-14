@@ -45,11 +45,53 @@ msgstr ""
 "Ваша учётная запись не является учётной записью сотрудника. Попросите "
 "администратора выдать доступ."
 
-msgid "Fergana Valley channel platform"
-msgstr "Платформа канала Ферганской долины"
+msgid "Dashboard"
+msgstr "Панель управления"
 
-msgid "Manage stores, products and prices for the Telegram channel."
-msgstr "Управляйте магазинами, товарами и ценами для Telegram-канала."
+msgid "active products"
+msgstr "активных товаров"
+
+msgid "active stores"
+msgstr "активных магазинов"
+
+msgid "prices entered today"
+msgstr "цен введено сегодня"
+
+msgid "running promotions"
+msgstr "действующих акций"
+
+msgid "baskets"
+msgstr "корзин"
+
+msgid "drafts"
+msgstr "черновиков"
+
+msgid "scheduled"
+msgstr "запланировано"
+
+msgid "published"
+msgstr "опубликовано"
+
+msgid "failed"
+msgstr "с ошибкой"
+
+msgid "Upcoming posts"
+msgstr "Ближайшие посты"
+
+msgid "overdue"
+msgstr "просрочен"
+
+msgid "Nothing is scheduled."
+msgstr "Ничего не запланировано."
+
+msgid "Write a post"
+msgstr "Написать пост"
+
+msgid "Recent failures"
+msgstr "Последние ошибки"
+
+msgid "No failed posts."
+msgstr "Постов с ошибкой нет."
 
 #, python-format
 msgid "Promotions in %(city)s"
