@@ -11,7 +11,7 @@ to a Telegram channel on a schedule.
 **Status:** all 30 parts of the plan are implemented.
 
 ## Stack
-- Python 3.12, Django 5.2
+- Python 3.12, Django 5.2, served by gunicorn (static files by WhiteNoise)
 - SQLite on a shared Docker volume
 - python-telegram-bot 21
 - Chart.js 4 (bundled, no CDN)
@@ -36,7 +36,7 @@ administrator.
    docker compose exec web python manage.py createsuperuser
    ```
 4. (Optional) Load demo data — cities, stores, products, 30 days of
-   prices and a few promotions:
+   prices, a few promotions and one basket:
    ```bash
    docker compose exec web python manage.py seed_demo
    ```
@@ -54,7 +54,7 @@ docker compose down                             # stop (add -v to delete the dat
 | Variable | Needed | Meaning |
 |---|---|---|
 | `DJANGO_SECRET_KEY` | yes | Any long random string |
-| `DJANGO_DEBUG` | yes | `1` for local use |
+| `DJANGO_DEBUG` | yes | `0` for normal use, `1` for detailed error pages while developing |
 | `DJANGO_ALLOWED_HOSTS` | yes | Host names, comma separated |
 | `TELEGRAM_BOT_TOKEN` | worker | Token from @BotFather |
 | `TELEGRAM_CHANNEL_ID` | worker | `@channelusername` or numeric id |
@@ -62,7 +62,10 @@ docker compose down                             # stop (add -v to delete the dat
 | `WORKER_POLL_SECONDS` | optional | How often the worker looks for due posts (default 30) |
 
 The web service runs without the Telegram values. The worker stops with
-a message in its log until the token and the channel id are set.
+a message in its log until the token and the channel id are set; after
+filling them in, start it with `docker compose up -d worker`.
+
+After changing the code, rebuild: `docker compose up --build -d`.
 
 ## What staff can do
 
@@ -222,9 +225,12 @@ scheduler (including two workers at the same moment) and publishing.
   bot object, not with a real token and channel. Sending, flood control
   and closing comments follow the Bot API documentation but have not
   been seen working in a real channel.
-- **Development server.** The web service uses Django's `runserver` and
-  serves static files and photos itself, which needs `DJANGO_DEBUG=1`.
-  A real deployment needs a production server and a static file setup.
+- **Plain HTTP on one machine.** The web service runs gunicorn on port
+  8000 without HTTPS. Putting it on the internet needs a reverse proxy
+  with a certificate, a real `DJANGO_SECRET_KEY`, the host name in
+  `DJANGO_ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` for that address.
+- **Uploaded photos are served by Django** to logged-in staff only. That
+  is enough for the preview; it is not a file server for many users.
 - **SQLite.** One file shared by two containers is fine for one channel
   and a few staff, not for heavy parallel use.
 - **At most once.** If the worker dies between sending a post and saving

@@ -12,13 +12,17 @@ Class-based views
     2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
 Including another URLconf
     1. Import the include() function: from django.urls import include, path
+
+from core.access import staff_required
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
 from django.conf import settings
-from django.conf.urls.static import static
+from django.views.static import serve
 from django.contrib import admin
 from django.urls import include, path
+
+from core.access import staff_required
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -30,5 +34,12 @@ urlpatterns = [
     path("", include("posts.urls")),
 ]
 
-# Serve uploaded photos from Django while developing (DEBUG only).
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Uploaded post photos: shown only to logged-in staff (in the post
+# preview). Subscribers get the photos from Telegram, not from here.
+urlpatterns += [
+    path(
+        "media/<path:path>",
+        staff_required(serve),
+        {"document_root": settings.MEDIA_ROOT},
+    ),
+]

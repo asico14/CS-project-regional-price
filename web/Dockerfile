@@ -10,7 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Gather CSS, JS and admin files into one folder for the web server.
+RUN python manage.py collectstatic --noinput
+
 EXPOSE 8000
 
-# Apply migrations to the shared database, then start the server.
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
+# Apply migrations to the shared database, then start the web server.
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --access-logfile -"]

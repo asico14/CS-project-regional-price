@@ -201,9 +201,10 @@ def main() -> None:
         logger.error(
             "TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID must be set. Get a token "
             "from @BotFather, add the bot to the channel as an administrator, "
-            "put both values in the .env file and restart the worker."
+            "put both values in the .env file and run: docker compose up -d worker"
         )
-        sys.exit(1)
+        # Exit code 0: Docker restarts the worker only after a real crash.
+        sys.exit(0)
 
     async def on_start(application: Application) -> None:
         application.bot_data["scheduler"] = asyncio.create_task(
@@ -230,7 +231,9 @@ def main() -> None:
             "TELEGRAM_DISCUSSION_GROUP_ID is not set: comments cannot be switched "
             "off per post."
         )
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # bootstrap_retries=-1: if Telegram cannot be reached at start
+    # (no internet yet), keep trying instead of exiting.
+    application.run_polling(allowed_updates=Update.ALL_TYPES, bootstrap_retries=-1)
 
 
 if __name__ == "__main__":

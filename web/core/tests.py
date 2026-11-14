@@ -1,16 +1,20 @@
+import tempfile
+from datetime import timedelta
+from pathlib import Path
+
 from django.contrib.auth import get_user_model
+from django.core.exceptions import SuspiciousFileOperation
 from django.test import TestCase
 from django.urls import reverse
-
-from datetime import timedelta
-
 from django.utils import timezone
+from django.views.static import serve
 
 from baskets.models import Basket
 from catalog.models import Category, Price, Product
 from locations.models import City, Store
 from posts.models import Post
 
+from .access import staff_required
 from .dashboard import dashboard_data
 
 
@@ -210,3 +214,25 @@ class DashboardTests(TestCase):
         response = self.client.get("/")
         self.assertEqual([post.title for post in response.context["failures"]], ["Xato post"])
         self.assertContains(response, "Chat not found")
+
+
+class MediaAccessTests(TestCase):
+    """Uploaded post photos are served by Django, to staff only."""
+
+    def test_anonymous_visitor_is_sent_to_login(self):
+        response = self.client.get("/media/posts/photo.png")
+        self.assertRedirects(response, "/login/?next=/media/posts/photo.png")
+
+    def test_staff_can_open_a_photo_but_not_escape_the_folder(self):
+        staff = get_user_model().objects.create_user("s", password="pw", is_staff=True)
+        self.client.force_login(staff)
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, "photo.png").write_bytes(b"image bytes")
+            request = self.client.get("/").wsgi_request
+            view = staff_required(serve)
+            response = view(request, path="photo.png", document_root=folder)
+            self.assertEqual(response.status_code, 200)
+            # Django answers a path that leaves the folder with "400 Bad Request".
+            with self.assertRaises(SuspiciousFileOperation):
+                view(request, path="../manage.py", document_root=folder)
+        self.assertEqual(self.client.get("/media/missing.png").status_code, 404)

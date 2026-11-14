@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
+from baskets.models import Basket, BasketItem
 from catalog.models import Category, Price, Product
 from locations.models import City, District, Store
 
@@ -68,6 +69,9 @@ CATALOG = {
     ],
 }
 
+# Demo basket: product name -> quantity
+DEMO_BASKET = {"Non (buxanka)": 7, "Sut 3.2%": 3, "Shakar": 1, "Kartoshka": 2, "Piyoz": 1}
+
 HISTORY_DAYS = 30
 # Fixed seed: every run of the command generates the same demo prices.
 RANDOM_SEED = 2026
@@ -86,6 +90,7 @@ class Command(BaseCommand):
         stores = self.seed_locations()
         products = self.seed_catalog()
         self.seed_prices(stores, products)
+        self.seed_basket()
         self.stdout.write(
             self.style.SUCCESS(
                 f"Demo data ready: {City.objects.count()} cities, "
@@ -135,6 +140,16 @@ class Command(BaseCommand):
                 )
                 products[product] = base_price
         return products
+
+    def seed_basket(self):
+        basket, created = Basket.objects.get_or_create(
+            name="Haftalik savat", defaults={"description": "Bir haftalik asosiy mahsulotlar"}
+        )
+        if created:
+            for name, quantity in DEMO_BASKET.items():
+                product = Product.objects.filter(name=name).first()
+                if product:
+                    BasketItem.objects.create(basket=basket, product=product, quantity=quantity)
 
     def seed_prices(self, stores, products):
         """Generate HISTORY_DAYS of price history and a few promotions.

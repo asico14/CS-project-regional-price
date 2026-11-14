@@ -36,6 +36,9 @@ services:
     depends_on:
       web:
         condition: service_healthy
+    # Start again after a crash. With no token set the worker exits
+    # normally (code 0), so it is not restarted in a loop.
+    restart: on-failure
 
 volumes:
   data:
