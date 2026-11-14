@@ -1,0 +1,148 @@
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: regional-price\n"
+"Language: uz\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Enter prices"
+msgstr "Narx kiritish"
+
+msgid "Products"
+msgstr "Mahsulotlar"
+
+msgid "Stores"
+msgstr "Do'konlar"
+
+msgid "Baskets"
+msgstr "Savatlar"
+
+msgid "Posts"
+msgstr "Postlar"
+
+msgid "Admin"
+msgstr "Admin panel"
+
+msgid "Log out"
+msgstr "Chiqish"
+
+msgid "Log in"
+msgstr "Kirish"
+
+msgid "This site is for channel staff only."
+msgstr "Bu sayt faqat kanal xodimlari uchun."
+
+msgid "No access"
+msgstr "Ruxsat yo'q"
+
+msgid ""
+"Your account is not a staff account. Ask an administrator to give you staff "
+"access."
+msgstr ""
+"Hisobingiz xodim hisobi emas. Administratordan xodim huquqini berishni "
+"so'rang."
+
+msgid "Fergana Valley channel platform"
+msgstr "Farg'ona vodiysi kanali platformasi"
+
+msgid "Manage stores, products and prices for the Telegram channel."
+msgstr "Telegram kanali uchun do'konlar, mahsulotlar va narxlarni boshqaring."
+
+#, python-format
+msgid "Promotions in %(city)s"
+msgstr "%(city)s shahridagi aksiyalar"
+
+msgid "Promotions in the valley"
+msgstr "Vodiydagi aksiyalar"
+
+msgid "so'm"
+msgstr "so'm"
+
+#, python-format
+msgid "was %(old)s, −%(percent)s%%"
+msgstr "avval %(old)s, −%(percent)s%%"
+
+#, python-format
+msgid "until %(date)s"
+msgstr "%(date)s gacha"
+
+msgid "Prices can change — check in the store."
+msgstr "Narxlar o'zgarishi mumkin — do'konda aniqlang."
+
+#, python-format
+msgid "%(product)s: prices in %(city)s"
+msgstr "%(product)s: %(city)s shahridagi narxlar"
+
+#, python-format
+msgid "%(product)s: prices in the valley"
+msgstr "%(product)s: vodiydagi narxlar"
+
+msgid "promotion"
+msgstr "aksiya"
+
+#, python-format
+msgid ""
+"Difference between the cheapest and the most expensive: %(difference)s so'm."
+msgstr "Eng arzon va eng qimmat narx orasidagi farq: %(difference)s so'm."
+
+#, python-format
+msgid "Prices checked on %(date)s."
+msgstr "Narxlar %(date)s kuni tekshirilgan."
+
+#, python-format
+msgid "Basket “%(basket)s”: where is it cheaper in %(city)s?"
+msgstr "“%(basket)s” savati: %(city)s shahrida qayerda arzon?"
+
+#, python-format
+msgid "Basket “%(basket)s”: where is it cheaper?"
+msgstr "“%(basket)s” savati: qayerda arzon?"
+
+msgid "In the basket:"
+msgstr "Savatda:"
+
+#, python-format
+msgid ""
+"In the cheapest store you save %(saving)s so'm compared with the most "
+"expensive one."
+msgstr "Eng arzon do'konda eng qimmatiga nisbatan %(saving)s so'm tejaysiz."
+
+#, python-format
+msgid "New store in %(city)s: %(store)s"
+msgstr "%(city)s shahrida yangi do'kon: %(store)s"
+
+#, python-format
+msgid "We now follow the prices of %(store)s."
+msgstr "Endi %(store)s do'konidagi narxlarni kuzatib boramiz."
+
+msgid "Address:"
+msgstr "Manzil:"
+
+msgid "Cheapest here in the city:"
+msgstr "Shahar bo'yicha eng arzoni shu yerda:"
+
+msgid "Know a store we should add? Write in the comments."
+msgstr "Qo'shishimiz kerak bo'lgan do'konni bilasizmi? Izohlarda yozing."
+
+#, python-format
+msgid "…and %(counter)s more promotion."
+msgid_plural "…and %(counter)s more promotions."
+msgstr[0] "…va yana %(counter)s ta aksiya."
+
+#, python-format
+msgid ""
+"%(counter)s store is not in the list: it does not have every product of the "
+"basket."
+msgid_plural ""
+"%(counter)s stores are not in the list: they do not have every product of "
+"the basket."
+msgstr[0] ""
+"%(counter)s ta do'kon ro'yxatga kirmadi: ularda savatdagi barcha mahsulotlar"
+" yo'q."
+
+#, python-format
+msgid "The price of %(counter)s product is already known."
+msgid_plural "The prices of %(counter)s products are already known."
+msgstr[0] "%(counter)s ta mahsulot narxi allaqachon ma'lum."

@@ -1,0 +1,10 @@
+{% load i18n %}{% autoescape off %}{% if city %}{% blocktranslate trimmed %}Basket “{{ basket }}”: where is it cheaper in {{ city }}?{% endblocktranslate %}{% else %}{% blocktranslate trimmed %}Basket “{{ basket }}”: where is it cheaper?{% endblocktranslate %}{% endif %}
+{% translate "In the basket:" %} {{ contents }}
+{% for item in items %}
+{{ item.place }}. {{ item.store }} — {{ item.total }} {% translate "so'm" %}{% if item.extra %} (+{{ item.extra }}){% endif %}{% endfor %}
+{% if saving %}
+{% blocktranslate trimmed %}In the cheapest store you save {{ saving }} so'm compared with the most expensive one.{% endblocktranslate %}
+{% endif %}{% if skipped %}
+{% blocktranslate trimmed count counter=skipped %}{{ counter }} store is not in the list: it does not have every product of the basket.{% plural %}{{ counter }} stores are not in the list: they do not have every product of the basket.{% endblocktranslate %}
+{% endif %}
+{% blocktranslate trimmed %}Prices checked on {{ date }}.{% endblocktranslate %}{% endautoescape %}

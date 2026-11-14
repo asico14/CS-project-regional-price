@@ -1,13 +1,14 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block content %}
-<h1>Fergana Valley channel platform</h1>
-<p>Manage stores, products and prices for the Telegram channel.</p>
+<h1>{% translate "Fergana Valley channel platform" %}</h1>
+<p>{% translate "Manage stores, products and prices for the Telegram channel." %}</p>
 <ul>
-  <li><a href="{% url 'price_entry' %}">Enter today's prices</a></li>
-  <li><a href="{% url 'product_list' %}">Products</a></li>
-  <li><a href="{% url 'store_list' %}">Stores</a></li>
-  <li><a href="{% url 'basket_list' %}">Basket comparison</a></li>
-  <li><a href="{% url 'post_list' %}">Channel posts</a></li>
-  <li><a href="{% url 'admin:index' %}">Admin panel</a></li>
+  <li><a href="{% url 'price_entry' %}">{% translate "Enter prices" %}</a></li>
+  <li><a href="{% url 'product_list' %}">{% translate "Products" %}</a></li>
+  <li><a href="{% url 'store_list' %}">{% translate "Stores" %}</a></li>
+  <li><a href="{% url 'basket_list' %}">{% translate "Baskets" %}</a></li>
+  <li><a href="{% url 'post_list' %}">{% translate "Posts" %}</a></li>
+  <li><a href="{% url 'admin:index' %}">{% translate "Admin" %}</a></li>
 </ul>
 {% endblock %}

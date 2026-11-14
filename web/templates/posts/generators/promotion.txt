@@ -1,0 +1,8 @@
+{% load i18n %}{% autoescape off %}{% if city %}{% blocktranslate trimmed %}Promotions in {{ city }}{% endblocktranslate %}{% else %}{% translate "Promotions in the valley" %}{% endif %}
+{% for item in items %}
+🔥 {{ item.product }} — {{ item.price }} {% translate "so'm" %}{% if item.old_price %} ({% blocktranslate trimmed with old=item.old_price percent=item.percent %}was {{ old }}, −{{ percent }}%{% endblocktranslate %}){% endif %}
+📍 {{ item.store }}{% if item.ends %} · {% blocktranslate trimmed with date=item.ends %}until {{ date }}{% endblocktranslate %}{% endif %}
+{% endfor %}{% if more %}
+{% blocktranslate trimmed count counter=more %}…and {{ counter }} more promotion.{% plural %}…and {{ counter }} more promotions.{% endblocktranslate %}
+{% endif %}
+{% translate "Prices can change — check in the store." %}{% endautoescape %}

@@ -62,14 +62,14 @@ class AuthTests(TestCase):
         self.client.force_login(self.reader)
         response = self.client.get(reverse("index"))
         self.assertEqual(response.status_code, 403)
-        self.assertContains(response, "No access", status_code=403)
+        self.assertTemplateUsed(response, "403.html")
 
     def test_staff_can_log_in_and_out(self):
         response = self.client.post(
             reverse("login"), {"username": "staff", "password": "pw", "next": "/"}
         )
         self.assertRedirects(response, "/")
-        self.assertContains(self.client.get("/"), "Log out")
+        self.assertContains(self.client.get("/"), 'action="/logout/"')
         # Logging out must be a POST request.
         self.assertEqual(self.client.get(reverse("logout")).status_code, 405)
         self.assertRedirects(self.client.post(reverse("logout")), "/login/")
@@ -84,3 +84,38 @@ class AuthTests(TestCase):
 
     def test_health_stays_public(self):
         self.assertEqual(self.client.get(reverse("health")).status_code, 200)
+
+
+class LanguageTests(TestCase):
+    def setUp(self):
+        staff = get_user_model().objects.create_user("staff", password="pw", is_staff=True)
+        self.client.force_login(staff)
+
+    def test_uzbek_is_the_default_language(self):
+        response = self.client.get("/")
+        self.assertContains(response, '<html lang="uz">')
+        self.assertContains(response, "Mahsulotlar")
+        self.assertContains(response, "Chiqish")
+
+    def test_switching_to_russian_and_back(self):
+        response = self.client.post(
+            reverse("set_language"), {"language": "ru", "next": "/"}
+        )
+        self.assertRedirects(response, "/")
+        response = self.client.get("/")
+        self.assertContains(response, '<html lang="ru">')
+        self.assertContains(response, "Товары")
+        self.client.post(reverse("set_language"), {"language": "uz", "next": "/"})
+        self.assertContains(self.client.get("/"), "Mahsulotlar")
+
+    def test_unknown_language_is_ignored(self):
+        self.client.post(reverse("set_language"), {"language": "de", "next": "/"})
+        self.assertContains(self.client.get("/"), '<html lang="uz">')
+
+    def test_browser_language_is_respected(self):
+        response = self.client.get("/", headers={"accept-language": "ru"})
+        self.assertContains(response, "Товары")
+
+    def test_login_page_is_translated(self):
+        self.client.logout()
+        self.assertContains(self.client.get(reverse("login")), "Kirish")

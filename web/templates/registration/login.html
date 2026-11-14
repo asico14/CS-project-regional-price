@@ -1,12 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Log in{% endblock %}
+{% load i18n %}
+{% block title %}{% translate "Log in" %}{% endblock %}
 {% block content %}
-<h1>Log in</h1>
-<p>This site is for channel staff only.</p>
+<h1>{% translate "Log in" %}</h1>
+<p>{% translate "This site is for channel staff only." %}</p>
 <form method="post" class="form">
   {% csrf_token %}
   {{ form.as_p }}
   <input type="hidden" name="next" value="{{ next }}">
-  <button type="submit">Log in</button>
+  <button type="submit">{% translate "Log in" %}</button>
 </form>
 {% endblock %}

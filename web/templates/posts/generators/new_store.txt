@@ -1,0 +1,10 @@
+{% load i18n %}{% autoescape off %}{% blocktranslate trimmed %}New store in {{ city }}: {{ store }}{% endblocktranslate %}
+{% blocktranslate trimmed %}We now follow the prices of {{ store }}.{% endblocktranslate %}
+{% if address %}
+📍 {% translate "Address:" %} {{ address }}
+{% endif %}{% if products %}
+{% blocktranslate trimmed count counter=products %}The price of {{ counter }} product is already known.{% plural %}The prices of {{ counter }} products are already known.{% endblocktranslate %}
+{% endif %}{% if cheapest %}
+{% translate "Cheapest here in the city:" %} {{ cheapest }}
+{% endif %}
+{% translate "Know a store we should add? Write in the comments." %}{% endautoescape %}

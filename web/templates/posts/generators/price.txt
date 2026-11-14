@@ -1,0 +1,7 @@
+{% load i18n %}{% autoescape off %}{% if city %}{% blocktranslate trimmed %}{{ product }}: prices in {{ city }}{% endblocktranslate %}{% else %}{% blocktranslate trimmed %}{{ product }}: prices in the valley{% endblocktranslate %}{% endif %}
+{% for item in items %}
+{% if item.cheapest %}✅{% else %}▫️{% endif %} {{ item.store }} — {{ item.price }} {% translate "so'm" %}{% if item.promo %} ({% translate "promotion" %}){% endif %}{% endfor %}
+{% if difference %}
+{% blocktranslate trimmed %}Difference between the cheapest and the most expensive: {{ difference }} so'm.{% endblocktranslate %}
+{% endif %}
+{% blocktranslate trimmed %}Prices checked on {{ date }}.{% endblocktranslate %}{% endautoescape %}

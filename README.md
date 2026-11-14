@@ -62,6 +62,20 @@ worker/              Telegram bot (python-telegram-bot, long polling)
 - Both services mount the `data` volume at `/data`, so they use the same
   SQLite file, `/data/db.sqlite3`, and the same uploaded photos, `/data/media`.
 
+## Languages
+Uzbek is the default language and Russian is the second one. The
+buttons in the top bar switch the site language. Every post has its
+own language, and generated posts come from one set of templates
+(`web/templates/posts/generators/`) translated through gettext.
+
+Translations live in `web/locale/<language>/LC_MESSAGES/django.po`.
+The compiled `django.mo` files are committed too, so the Docker image
+does not need the gettext tools. After editing a `.po` file run
+`python manage.py compilemessages` (needs gettext installed).
+
+Only the navigation, login and home page are translated so far; the
+other staff pages are still in English.
+
 ## Pages (staff only)
 Log in at http://localhost:8000/login/ with a staff account
 (`createsuperuser` makes one).
