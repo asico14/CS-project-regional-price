@@ -8,7 +8,10 @@
     <span class="muted">{{ product.category }} · {{ product.unit_size.normalize }} {{ product.get_unit_display }}</span>
     {% if not product.is_active %}<span class="badge">inactive</span>{% endif %}
   </div>
-  <a class="btn" href="{% url 'catalog:product_edit' product.pk %}">Edit product</a>
+  <div>
+    <a class="btn" href="{% url 'posts:post_generate' %}?price-product={{ product.pk }}#price">Make a price post</a>
+    <a class="btn" href="{% url 'catalog:product_edit' product.pk %}">Edit product</a>
+  </div>
 </div>
 
 {% if cheapest %}

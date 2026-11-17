@@ -1,6 +1,11 @@
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
+from catalog.models import Price, Product
+from locations.models import City
+
+from . import generators
 from .hashtags import build_hashtags
 from .models import Post
 from .telegram import compose_plain, length_limit, telegram_length
@@ -75,3 +80,77 @@ class PostForm(forms.ModelForm):
         if commit:
             post.save()
         return post
+
+
+class GeneratorForm(forms.Form):
+    """Base for the "generate a post" forms: every generator needs a language."""
+
+    kind = None  # set by subclasses; also the form prefix
+    title = ""
+    help = ""
+
+    language = forms.ChoiceField(choices=Post.Language.choices, initial="uz")
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("prefix", self.kind)
+        super().__init__(*args, **kwargs)
+
+    def generate(self):
+        raise NotImplementedError
+
+
+class PromotionGeneratorForm(GeneratorForm):
+    kind = "promotion"
+    title = "Promotion post"
+    help = "One running promotion: new price, old price, discount and end date."
+
+    price = forms.ModelChoiceField(queryset=Price.objects.none(), label="Promotion")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        today = timezone.localdate()
+        self.fields["price"].queryset = (
+            Price.objects.current()
+            .filter(regular_price__isnull=False, store__is_active=True)
+            .filter(Q(promo_until__isnull=True) | Q(promo_until__gte=today))
+            .select_related("product", "store__city")
+            .order_by("product__name", "store__name")
+        )
+        self.fields["price"].label_from_instance = lambda p: (
+            f"{p.product} — {p.store} — {p.price} so'm (−{p.discount_percent}%)"
+        )
+
+    def generate(self):
+        data = self.cleaned_data
+        return generators.promotion_post(data["price"], data["language"])
+
+
+class PriceGeneratorForm(GeneratorForm):
+    kind = "price"
+    title = "Price post"
+    help = "Current prices of one product, cheapest store first."
+
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.filter(is_active=True).select_related("category")
+    )
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(), required=False, empty_label="All cities"
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.errors:
+            return cleaned
+        try:
+            self.post = generators.price_post(
+                cleaned["product"], cleaned["language"], cleaned.get("city")
+            )
+        except ValueError as error:
+            raise forms.ValidationError(str(error))
+        return cleaned
+
+    def generate(self):
+        return self.post
+
+
+GENERATOR_FORMS = [PromotionGeneratorForm, PriceGeneratorForm]

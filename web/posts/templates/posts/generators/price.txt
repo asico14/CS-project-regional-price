@@ -1,6 +1,6 @@
-{% load i18n %}{% if city %}{% blocktranslate %}📊 Prices for {{ product }} in {{ city }}:{% endblocktranslate %}{% else %}{% blocktranslate %}📊 Prices for {{ product }} in the Fergana Valley:{% endblocktranslate %}{% endif %}
+{% load i18n %}{% autoescape off %}{% if city %}{% blocktranslate %}📊 Prices for {{ product }} in {{ city }}:{% endblocktranslate %}{% else %}{% blocktranslate %}📊 Prices for {{ product }} in the Fergana Valley:{% endblocktranslate %}{% endif %}
 {% for row in rows %}
-{{ forloop.counter }}. {{ row.store }} — {{ row.price }} so'm{% if forloop.first %} ✅{% endif %}{% endfor %}
+{{ forloop.counter }}. {{ row.store }} — {{ row.price }} {% translate "so'm" %}{% if forloop.first %} ✅{% endif %}{% endfor %}
 {% if difference %}
 {% blocktranslate %}💡 The difference between the cheapest and the most expensive store is {{ difference }} so'm ({{ percent }}%).{% endblocktranslate %}{% endif %}
-{% blocktranslate %}Prices as of {{ date }}.{% endblocktranslate %}
+{% blocktranslate %}Prices as of {{ date }}.{% endblocktranslate %}{% endautoescape %}

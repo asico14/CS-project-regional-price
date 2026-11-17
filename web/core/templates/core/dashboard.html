@@ -17,7 +17,7 @@
 <div class="quick">
   <a class="btn primary" href="{% url 'catalog:price_entry' %}">{% translate "Enter prices" %}</a>
   <a class="btn" href="{% url 'posts:post_create' %}">{% translate "New post" %}</a>
-  {% if generate_url %}<a class="btn" href="{{ generate_url }}">{% translate "Generate a post" %}</a>{% endif %}
+  <a class="btn" href="{% url 'posts:post_generate' %}">{% translate "Generate a post" %}</a>
 </div>
 
 <div class="tiles">

@@ -7,7 +7,7 @@ from django.views.generic import ListView
 from core.permissions import StaffRequiredMixin, staff_required
 from locations.models import City
 
-from .forms import PostForm
+from .forms import GENERATOR_FORMS, PostForm
 from .hashtags import build_hashtags
 from .models import Post
 from .telegram import compose_html, compose_plain, length_limit, telegram_length
@@ -92,3 +92,39 @@ def post_preview(request):
         "length": telegram_length(compose_plain(title, body, hashtags)),
         "limit": length_limit(has_image),
     })
+
+
+@staff_required
+def post_generate(request):
+    """Generate a draft post from the database and open it in the editor.
+
+    The page shows one small form per generator; the submit button's
+    ``kind`` says which one was used. GET parameters pre-fill the forms,
+    e.g. ``?price-product=3`` from a product page.
+    """
+    kind = request.POST.get("kind") if request.method == "POST" else None
+    forms = []
+    for form_class in GENERATOR_FORMS:
+        if form_class.kind == kind:
+            form = form_class(request.POST)
+        else:
+            form = form_class(initial=_initial_from_query(request, form_class.kind))
+        forms.append(form)
+        if form.is_bound and form.is_valid():
+            post = form.generate()
+            post.created_by = request.user
+            post.save()
+            messages.success(
+                request, "Draft generated: check the text, then schedule it."
+            )
+            return redirect("posts:post_edit", pk=post.pk)
+    return render(request, "posts/post_generate.html", {"forms": forms})
+
+
+def _initial_from_query(request, prefix):
+    start = f"{prefix}-"
+    return {
+        key[len(start):]: value
+        for key, value in request.GET.items()
+        if key.startswith(start)
+    }

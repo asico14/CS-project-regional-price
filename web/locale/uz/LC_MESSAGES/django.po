@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: regional-price\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 01:45+0500\n"
+"POT-Creation-Date: 2026-11-18 01:49+0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -57,14 +57,12 @@ msgstr "Yangi post"
 msgid "Generate a post"
 msgstr "Post yaratish"
 
-#| msgid "Products"
 msgid "Active products"
 msgstr "Faol mahsulotlar"
 
 msgid "Active stores"
 msgstr "Faol do'konlar"
 
-#| msgid "Prices as of %(date)s."
 msgid "Prices today / 7 days"
 msgstr "Narxlar: bugun / 7 kun"
 
@@ -111,12 +109,21 @@ msgstr "Har bir do'konda so'nggi %(stale_days)s kunlik narxlar bor."
 msgid "Staff access for the channel editors."
 msgstr "Kanal muharrirlari uchun kirish."
 
+msgid "Promotion"
+msgstr "Aksiya"
+
+msgid "Prices"
+msgstr "Narxlar"
+
 #, python-format
 msgid "🛒 Basket “%(basket)s”: where is it cheapest?"
 msgstr "🛒 “%(basket)s” savati: qayerda arzonroq?"
 
 msgid "In the basket:"
 msgstr "Savatda:"
+
+msgid "so'm"
+msgstr "so'm"
 
 #, python-format
 msgid "💰 Shopping at %(best)s instead of %(worst)s saves %(savings)s so'm."
