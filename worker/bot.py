@@ -15,6 +15,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 import db
+import publisher
 import scheduler
 
 logging.basicConfig(
@@ -27,6 +28,7 @@ logger = logging.getLogger("worker")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/db.sqlite3")
 CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", "/data/media")
 POLL_INTERVAL = int(os.environ.get("SCHEDULER_INTERVAL_SECONDS", "30"))
 
 CITIES = ["Qo'qon", "Farg'ona", "Andijon", "Namangan", "Marg'ilon"]
@@ -72,20 +74,6 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines))
 
 
-def make_publisher(bot):
-    """The publish function handed to the scheduler."""
-
-    async def publish(post):
-        text = "\n\n".join(
-            part.strip() for part in (post["title"], post["body"], post["hashtags"])
-            if part and part.strip()
-        )
-        message = await bot.send_message(chat_id=CHANNEL_ID, text=text)
-        return message.message_id
-
-    return publish
-
-
 async def start_scheduler(application: Application) -> None:
     conn = db.connect(DATABASE_PATH)
     application.bot_data["db"] = conn
@@ -93,7 +81,11 @@ async def start_scheduler(application: Application) -> None:
         logger.warning("TELEGRAM_CHANNEL_ID is not set: posts will not be published.")
         return
     application.create_task(
-        scheduler.run_forever(conn, make_publisher(application.bot), POLL_INTERVAL),
+        scheduler.run_forever(
+            conn,
+            publisher.make_publisher(application.bot, CHANNEL_ID, MEDIA_ROOT),
+            POLL_INTERVAL,
+        ),
         name="scheduler",
     )
 

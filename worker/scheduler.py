@@ -15,6 +15,10 @@ import db
 logger = logging.getLogger("worker.scheduler")
 
 
+class PublishFailed(Exception):
+    """Raised by ``publish`` with a message meant for the editors."""
+
+
 class RetryLater(Exception):
     """Raised by ``publish`` when Telegram certainly did NOT send the post
     (e.g. flood control) and it is safe to try again after ``seconds``."""
@@ -45,6 +49,10 @@ async def run_once(
             logger.warning(
                 "Post %s: %s, retrying in %ss", post_id, error, error.seconds
             )
+        except PublishFailed as error:
+            db.mark_failed(conn, post_id, str(error), db.utcnow())
+            summary["failed"] += 1
+            logger.warning("Post %s failed: %s", post_id, error)
         except Exception as error:  # noqa: BLE001 - any failure ends this attempt
             db.mark_failed(conn, post_id, f"{type(error).__name__}: {error}",
                            db.utcnow())
