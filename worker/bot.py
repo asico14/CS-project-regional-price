@@ -1,7 +1,9 @@
 """Telegram bot worker for the Regional Price & Deals platform.
 
 Runs as its own Docker Compose service and shares the SQLite database
-with the Django web service through the "data" volume.
+with the Django web service through the "data" volume. Besides answering
+a few commands it runs the scheduler (scheduler.py), which publishes the
+posts that editors scheduled in the web app to the channel.
 """
 
 import logging
@@ -12,6 +14,9 @@ import sys
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+import db
+import scheduler
+
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     level=logging.INFO,
@@ -21,6 +26,8 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("worker")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/db.sqlite3")
+CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
+POLL_INTERVAL = int(os.environ.get("SCHEDULER_INTERVAL_SECONDS", "30"))
 
 CITIES = ["Qo'qon", "Farg'ona", "Andijon", "Namangan", "Marg'ilon"]
 
@@ -53,7 +60,42 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(f"Worker is running, {database_status()}.")
+    lines = [f"Worker is running, {database_status()}."]
+    try:
+        counts = db.count_by_status(context.application.bot_data["db"])
+        lines.append(
+            "Posts: " + ", ".join(f"{n} {s}" for s, n in sorted(counts.items()))
+            if counts else "Posts: none yet."
+        )
+    except (KeyError, sqlite3.Error):
+        pass
+    await update.message.reply_text("\n".join(lines))
+
+
+def make_publisher(bot):
+    """The publish function handed to the scheduler."""
+
+    async def publish(post):
+        text = "\n\n".join(
+            part.strip() for part in (post["title"], post["body"], post["hashtags"])
+            if part and part.strip()
+        )
+        message = await bot.send_message(chat_id=CHANNEL_ID, text=text)
+        return message.message_id
+
+    return publish
+
+
+async def start_scheduler(application: Application) -> None:
+    conn = db.connect(DATABASE_PATH)
+    application.bot_data["db"] = conn
+    if not CHANNEL_ID:
+        logger.warning("TELEGRAM_CHANNEL_ID is not set: posts will not be published.")
+        return
+    application.create_task(
+        scheduler.run_forever(conn, make_publisher(application.bot), POLL_INTERVAL),
+        name="scheduler",
+    )
 
 
 def main() -> None:
@@ -67,7 +109,7 @@ def main() -> None:
 
     logger.info("Starting worker, %s", database_status())
 
-    application = Application.builder().token(token).build()
+    application = Application.builder().token(token).post_init(start_scheduler).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("status", status))
