@@ -179,3 +179,67 @@ class ProductFormTests(StaffTestCase):
         )
         self.assertIn("unit_size", response.context["form"].errors)
         self.assertEqual(Product.objects.count(), 1)
+
+
+class PriceEntryTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(name="Sut", category=dairy)
+        self.kefir = Product.objects.create(name="Qatiq", category=dairy)
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.store = Store.objects.create(name="Korzinka", city=city)
+        self.url = (
+            reverse("catalog:price_entry")
+            + f"?store={self.store.pk}&observed_on=2026-11-01"
+        )
+
+    def test_staff_only(self):
+        self.assertStaffOnly(reverse("catalog:price_entry"))
+
+    def test_start_page_and_future_date(self):
+        response = self.client.get(reverse("catalog:price_entry"))
+        self.assertTemplateUsed(response, "catalog/price_entry_start.html")
+        response = self.client.get(
+            reverse("catalog:price_entry"),
+            {"store": self.store.pk, "observed_on": "2999-01-01"},
+        )
+        self.assertTemplateUsed(response, "catalog/price_entry_start.html")
+
+    def test_last_price_is_shown(self):
+        Price.objects.create(product=self.milk, store=self.store, price=9000,
+                             observed_on=date(2026, 10, 30))
+        response = self.client.get(self.url)
+        rows = {r["product"]: r["last_price"] for r in response.context["form"].rows}
+        self.assertEqual(rows, {self.milk: 9000, self.kefir: None})
+
+    def test_only_filled_rows_are_saved(self):
+        response = self.client.post(self.url, {
+            f"price_{self.milk.pk}": "9500",
+            f"price_{self.kefir.pk}": "6000",
+            f"regular_{self.kefir.pk}": "7000",
+            f"until_{self.kefir.pk}": "2026-11-05",
+        })
+        self.assertEqual(response.status_code, 302)
+        milk = Price.objects.get(product=self.milk)
+        self.assertEqual((milk.price, milk.observed_on), (9500, date(2026, 11, 1)))
+        self.assertEqual(milk.created_by, self.user)
+        kefir = Price.objects.get(product=self.kefir)
+        self.assertEqual(kefir.regular_price, 7000)
+
+    def test_invalid_promo_saves_nothing(self):
+        response = self.client.post(self.url, {
+            f"price_{self.milk.pk}": "9500",
+            f"price_{self.kefir.pk}": "6000",
+            f"regular_{self.kefir.pk}": "5000",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f"regular_{self.kefir.pk}", response.context["form"].errors)
+        self.assertFalse(Price.objects.exists())
+
+    def test_empty_form_saves_nothing(self):
+        response = self.client.post(self.url, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Price.objects.exists())

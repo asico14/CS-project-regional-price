@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Enter prices · Regional Price & Deals{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 520px">
+  <h1>Enter prices</h1>
+  <p class="muted">Choose the store you visited and the day the prices were seen.</p>
+  <form method="get">
+    {% include "core/form_fields.html" %}
+    <button class="btn primary" type="submit">Continue</button>
+  </form>
+</section>
+{% endblock %}

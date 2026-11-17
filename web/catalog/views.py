@@ -1,12 +1,15 @@
+from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView
 
-from core.permissions import StaffRequiredMixin
+from core.permissions import StaffRequiredMixin, staff_required
 from core.views_mixins import FormPageMixin
 
-from .forms import ProductForm
-from .models import Category, Product
+from .forms import PriceEntryForm, PriceEntryStartForm, ProductForm
+from .models import Category, Price, Product
 
 
 class ProductListView(StaffRequiredMixin, ListView):
@@ -58,3 +61,58 @@ class ProductCreateView(ProductFormMixin, CreateView):
 
 class ProductUpdateView(ProductFormMixin, UpdateView):
     pass
+
+
+@staff_required
+def price_entry(request):
+    """Fast daily price entry: pick a store and a day, then type the prices.
+
+    Step 1 (no store chosen yet) shows a small form. Step 2 lists every
+    active product with the last known price in that store as placeholder;
+    only the filled rows are saved, all in one transaction.
+    """
+    start = PriceEntryStartForm(request.GET or None)
+    if not start.is_valid():
+        return render(request, "catalog/price_entry_start.html", {"form": start})
+
+    store = start.cleaned_data["store"]
+    day = start.cleaned_data["observed_on"]
+    products = Product.objects.filter(is_active=True).select_related("category")
+    category = request.GET.get("category", "")
+    if category:
+        products = products.filter(category__slug=category)
+    products = products.order_by("category__name", "name", "brand")
+    last_prices = dict(
+        Price.objects.current()
+        .filter(store=store, observed_on__lte=day)
+        .values_list("product_id", "price")
+    )
+
+    form = PriceEntryForm(
+        request.POST or None, products=products, last_prices=last_prices
+    )
+    if request.method == "POST" and form.is_valid():
+        rows = [
+            Price(product=product, store=store, price=price,
+                  regular_price=regular, promo_until=until,
+                  observed_on=day, created_by=request.user)
+            for product, price, regular, until in form.entered_prices()
+        ]
+        if rows:
+            with transaction.atomic():
+                Price.objects.bulk_create(rows)
+            messages.success(
+                request, f"Saved {len(rows)} prices for {store} on {day:%d.%m.%Y}."
+            )
+            return redirect(request.get_full_path())
+        messages.warning(request, "Nothing to save: all price fields were empty.")
+
+    already = Price.objects.filter(store=store, observed_on=day).count()
+    return render(request, "catalog/price_entry.html", {
+        "form": form,
+        "store": store,
+        "day": day,
+        "already": already,
+        "categories": Category.objects.all(),
+        "selected_category": category,
+    })
