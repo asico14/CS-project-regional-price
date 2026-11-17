@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: regional-price\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 01:42+0500\n"
+"POT-Creation-Date: 2026-11-18 01:45+0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -47,6 +47,66 @@ msgstr "Выйти"
 
 msgid "Log in"
 msgstr "Войти"
+
+msgid "Dashboard"
+msgstr "Панель управления"
+
+msgid "New post"
+msgstr "Новый пост"
+
+msgid "Generate a post"
+msgstr "Сгенерировать пост"
+
+#| msgid "Products"
+msgid "Active products"
+msgstr "Активные товары"
+
+msgid "Active stores"
+msgstr "Активные магазины"
+
+#| msgid "Prices as of %(date)s."
+msgid "Prices today / 7 days"
+msgstr "Цены: сегодня / 7 дней"
+
+msgid "Running promotions"
+msgstr "Текущие акции"
+
+msgid "Drafts"
+msgstr "Черновики"
+
+msgid "Scheduled"
+msgstr "Запланировано"
+
+msgid "Published, 7 days"
+msgstr "Опубликовано, 7 дней"
+
+msgid "Failed"
+msgstr "Ошибки"
+
+msgid "Upcoming posts"
+msgstr "Ближайшие посты"
+
+msgid "due"
+msgstr "пора"
+
+msgid "Nothing scheduled."
+msgstr "Ничего не запланировано."
+
+msgid "Recent failures"
+msgstr "Последние ошибки"
+
+msgid "No failed posts."
+msgstr "Ошибок нет."
+
+msgid "Stores without fresh prices"
+msgstr "Магазины без свежих цен"
+
+msgid "Enter"
+msgstr "Ввести"
+
+#, python-format
+msgid "Every store has prices from the last %(stale_days)s days."
+msgstr "У каждого магазина есть цены за последние %(stale_days)s дней."
 
 msgid "Staff access for the channel editors."
 msgstr "Вход для редакторов канала."

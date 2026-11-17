@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Dashboard" %} · Regional Price & Deals{% endblock %}
+{% block head %}
+<style>
+  .tiles { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 1rem; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; color: var(--text); }
+  a.tile:hover { text-decoration: none; border-color: var(--primary); }
+  .tile .stat { font-size: 1.6rem; }
+  .tile.alert { border-color: var(--bad); background: var(--bad-bg); }
+  .quick { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "Dashboard" %}</h1></div>
+
+<div class="quick">
+  <a class="btn primary" href="{% url 'catalog:price_entry' %}">{% translate "Enter prices" %}</a>
+  <a class="btn" href="{% url 'posts:post_create' %}">{% translate "New post" %}</a>
+  {% if generate_url %}<a class="btn" href="{{ generate_url }}">{% translate "Generate a post" %}</a>{% endif %}
+</div>
+
+<div class="tiles">
+  <a class="tile" href="{% url 'catalog:product_list' %}"><div class="muted">{% translate "Active products" %}</div><div class="stat">{{ counts.products }}</div></a>
+  <a class="tile" href="{% url 'locations:store_list' %}"><div class="muted">{% translate "Active stores" %}</div><div class="stat">{{ counts.stores }}</div></a>
+  <div class="tile"><div class="muted">{% translate "Prices today / 7 days" %}</div><div class="stat">{{ counts.prices_today }} / {{ counts.prices_week }}</div></div>
+  <div class="tile"><div class="muted">{% translate "Running promotions" %}</div><div class="stat">{{ counts.promotions }}</div></div>
+  <a class="tile" href="{% url 'posts:post_list' %}?status=draft"><div class="muted">{% translate "Drafts" %}</div><div class="stat">{{ counts.drafts }}</div></a>
+  <a class="tile" href="{% url 'posts:post_list' %}?status=scheduled"><div class="muted">{% translate "Scheduled" %}</div><div class="stat">{{ counts.scheduled }}</div></a>
+  <a class="tile" href="{% url 'posts:post_list' %}?status=published"><div class="muted">{% translate "Published, 7 days" %}</div><div class="stat">{{ counts.published_week }}</div></a>
+  <a class="tile{% if counts.failed %} alert{% endif %}" href="{% url 'posts:post_list' %}?status=failed"><div class="muted">{% translate "Failed" %}</div><div class="stat">{{ counts.failed }}</div></a>
+</div>
+
+<div class="grid">
+  <section class="card">
+    <h2 style="margin-top:0">{% translate "Upcoming posts" %}</h2>
+    {% if upcoming %}
+    <table>
+      {% for post in upcoming %}
+        <tr>
+          <td>{{ post.scheduled_at|date:"d.m H:i" }}{% if post.scheduled_at <= now %} <span class="badge warn">{% translate "due" %}</span>{% endif %}</td>
+          <td><a href="{% url 'posts:post_edit' post.pk %}">{{ post|truncatechars:45 }}</a></td>
+          <td>{% include "posts/status_badge.html" %}</td>
+        </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">{% translate "Nothing scheduled." %}</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">{% translate "Recent failures" %}</h2>
+    {% if failures %}
+    <table>
+      {% for post in failures %}
+        <tr>
+          <td><a href="{% url 'posts:post_edit' post.pk %}">{{ post|truncatechars:40 }}</a><br><small class="error">{{ post.last_error|truncatechars:120 }}</small></td>
+          <td>{{ post.updated_at|date:"d.m H:i" }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">{% translate "No failed posts." %}</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2 style="margin-top:0">{% translate "Stores without fresh prices" %}</h2>
+    {% if stale_stores %}
+    <table>
+      {% for store in stale_stores %}
+        <tr>
+          <td>{{ store }}</td>
+          <td>{{ store.last_price|date:"d.m.Y"|default:"—" }}</td>
+          <td><a href="{% url 'catalog:price_entry' %}?store={{ store.pk }}">{% translate "Enter" %}</a></td>
+        </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">{% blocktranslate %}Every store has prices from the last {{ stale_days }} days.{% endblocktranslate %}</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

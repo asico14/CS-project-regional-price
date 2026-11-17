@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: regional-price\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-18 01:42+0500\n"
+"POT-Creation-Date: 2026-11-18 01:45+0500\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -47,6 +47,66 @@ msgstr "Chiqish"
 
 msgid "Log in"
 msgstr "Kirish"
+
+msgid "Dashboard"
+msgstr "Boshqaruv paneli"
+
+msgid "New post"
+msgstr "Yangi post"
+
+msgid "Generate a post"
+msgstr "Post yaratish"
+
+#| msgid "Products"
+msgid "Active products"
+msgstr "Faol mahsulotlar"
+
+msgid "Active stores"
+msgstr "Faol do'konlar"
+
+#| msgid "Prices as of %(date)s."
+msgid "Prices today / 7 days"
+msgstr "Narxlar: bugun / 7 kun"
+
+msgid "Running promotions"
+msgstr "Joriy aksiyalar"
+
+msgid "Drafts"
+msgstr "Qoralamalar"
+
+msgid "Scheduled"
+msgstr "Rejalashtirilgan"
+
+msgid "Published, 7 days"
+msgstr "Chop etilgan, 7 kun"
+
+msgid "Failed"
+msgstr "Xatolik"
+
+msgid "Upcoming posts"
+msgstr "Navbatdagi postlar"
+
+msgid "due"
+msgstr "vaqti keldi"
+
+msgid "Nothing scheduled."
+msgstr "Hech narsa rejalashtirilmagan."
+
+msgid "Recent failures"
+msgstr "So'nggi xatoliklar"
+
+msgid "No failed posts."
+msgstr "Xatolikli postlar yo'q."
+
+msgid "Stores without fresh prices"
+msgstr "Yangi narxlari yo'q do'konlar"
+
+msgid "Enter"
+msgstr "Kiritish"
+
+#, python-format
+msgid "Every store has prices from the last %(stale_days)s days."
+msgstr "Har bir do'konda so'nggi %(stale_days)s kunlik narxlar bor."
 
 msgid "Staff access for the channel editors."
 msgstr "Kanal muharrirlari uchun kirish."

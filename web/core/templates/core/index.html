@@ -1,9 +1,0 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="card">
-  <h1>Regional Price &amp; Deals</h1>
-  <p>Back office of the Fergana Valley price and deals Telegram channel
-  (Qo'qon, Farg'ona, Andijon, Namangan, Marg'ilon).</p>
-  {% if not user.is_authenticated %}<p><a class="btn primary" href="{% url 'login' %}">Log in</a></p>{% endif %}
-</section>
-{% endblock %}
