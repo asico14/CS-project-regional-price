@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from .hashtags import build_hashtags
+
 
 class Post(models.Model):
     """A message for the Telegram channel.
@@ -67,6 +69,13 @@ class Post(models.Model):
         related_name="posts",
         help_text="Optional: the city the post is about (adds a hashtag).",
     )
+    extra_tags = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Extra hashtags, separated by commas, e.g. "sut, chegirma".',
+    )
+    # Built from rubric, language, city and extra_tags on every save.
+    hashtags = models.CharField(max_length=300, blank=True, editable=False)
 
     status = models.CharField(
         max_length=12, choices=Status.choices, default=Status.DRAFT, db_index=True
@@ -116,6 +125,20 @@ class Post(models.Model):
 
     def can_change_status(self, new_status):
         return new_status in self.EDITOR_TRANSITIONS.get(self.status, set())
+
+    def build_hashtags(self):
+        return build_hashtags(
+            self.rubric,
+            self.language,
+            self.city.name if self.city_id else "",
+            self.extra_tags,
+        )
+
+    def save(self, *args, **kwargs):
+        self.hashtags = " ".join(self.build_hashtags())
+        if kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = {*kwargs["update_fields"], "hashtags"}
+        super().save(*args, **kwargs)
 
     def clean(self):
         if self.status == self.Status.SCHEDULED and self.scheduled_at is None:

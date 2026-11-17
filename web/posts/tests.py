@@ -5,6 +5,13 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 
+from .hashtags import (
+    MAX_HASHTAGS,
+    MAX_TAG_LENGTH,
+    build_hashtags,
+    split_extra_tags,
+    to_hashtag,
+)
 from .models import Post
 
 
@@ -51,3 +58,58 @@ class PostModelTests(TestCase):
                 post.schedule()
             with self.assertRaises(ValidationError):
                 post.unschedule()
+
+
+class HashtagTests(TestCase):
+    def test_to_hashtag(self):
+        cases = {
+            "Qo'qon": "#Qoqon",
+            "Farg‘ona": "#Fargona",
+            "Marg'ilon dehqon bozori": "#MargilonDehqonBozori",
+            "#sut": "#Sut",
+            "sut-mahsulotlari": "#SutMahsulotlari",
+            "Coca-Cola 1.5": "#CocaCola15",
+            "Новости магазинов": "#НовостиМагазинов",
+            "black_friday": "#BlackFriday",
+            "iPhone": "#IPhone",
+            "2026": None,
+            "  ": None,
+            "!!!": None,
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(to_hashtag(text), expected)
+
+    def test_long_tags_are_cut(self):
+        self.assertEqual(len(to_hashtag("a" * 100)), MAX_TAG_LENGTH + 1)
+
+    def test_split_extra_tags(self):
+        self.assertEqual(
+            split_extra_tags("sut, #chegirma\nnon"), ["sut", "chegirma", "non"]
+        )
+
+    def test_build_hashtags_order_language_and_dedup(self):
+        self.assertEqual(
+            build_hashtags("promotion", "uz", "Qo'qon", "sut, #Aksiya, qoqon"),
+            ["#Aksiya", "#Qoqon", "#Sut"],
+        )
+        self.assertEqual(build_hashtags("price", "ru"), ["#Цены"])
+        # Unknown language falls back to Uzbek.
+        self.assertEqual(build_hashtags("review", "en"), ["#Sharh"])
+
+    def test_build_hashtags_limit(self):
+        tags = build_hashtags("price", "uz", "Andijon", "a1, b2, c3, d4, e5")
+        self.assertEqual(len(tags), MAX_HASHTAGS)
+        self.assertEqual(tags[:2], ["#Narxlar", "#Andijon"])
+
+    def test_post_stores_hashtags_on_save(self):
+        from locations.models import City
+
+        city = City.objects.create(name="Farg'ona", slug="fargona")
+        post = Post.objects.create(body="x", rubric="lifehack", city=city,
+                                   extra_tags="tejash")
+        self.assertEqual(post.hashtags, "#Layfxak #Fargona #Tejash")
+        post.language = "ru"
+        post.save(update_fields=["language"])
+        post.refresh_from_db()
+        self.assertEqual(post.hashtags, "#Лайфхак #Fargona #Tejash")
