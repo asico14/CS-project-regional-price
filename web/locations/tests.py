@@ -42,3 +42,27 @@ class LocationModelTests(TestCase):
         self.center.delete()
         store.refresh_from_db()
         self.assertIsNone(store.district)
+
+
+class AdminTests(TestCase):
+    """Every admin changelist and add page opens for a superuser."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.create_superuser("admin", "a@example.com", "pw")
+        self.client.force_login(user)
+
+    def test_admin_pages_open(self):
+        from django.contrib import admin
+
+        for model in admin.site._registry:
+            if model._meta.app_label not in {"locations", "catalog"}:
+                continue
+            opts = model._meta
+            for page in ("changelist", "add"):
+                url = f"/admin/{opts.app_label}/{opts.model_name}/"
+                if page == "add":
+                    url += "add/"
+                with self.subTest(url=url):
+                    self.assertEqual(self.client.get(url).status_code, 200)
