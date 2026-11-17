@@ -5,6 +5,9 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.urls import reverse
+
+from core.testing import StaffTestCase
 
 from .models import Category, Price, Product
 
@@ -106,3 +109,34 @@ class PriceModelTests(TestCase):
         self.add(self.store_a, 6000, 1)
         with self.assertRaises(ProtectedError):
             self.store_a.delete()
+
+
+class ProductListTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        meat = Category.objects.create(name="Go'sht", slug="gosht")
+        Product.objects.create(name="Sut", brand="Nestle", category=dairy)
+        Product.objects.create(name="Qatiq", brand="Musaffo", category=dairy)
+        Product.objects.create(name="Mol go'shti", category=meat)
+        Product.objects.create(name="Eski sut", category=dairy, is_active=False)
+        self.url = reverse("catalog:product_list")
+
+    def names(self, **params):
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, 200)
+        return {p.name for p in response.context["product_list"]}
+
+    def test_staff_only(self):
+        self.assertStaffOnly(self.url)
+
+    def test_lists_active_products(self):
+        self.assertEqual(self.names(), {"Sut", "Qatiq", "Mol go'shti"})
+
+    def test_search_matches_name_and_brand(self):
+        self.assertEqual(self.names(q="sut"), {"Sut"})
+        self.assertEqual(self.names(q="musaffo"), {"Qatiq"})
+
+    def test_category_filter_and_inactive(self):
+        self.assertEqual(self.names(category="gosht"), {"Mol go'shti"})
+        self.assertEqual(self.names(q="sut", inactive="1"), {"Sut", "Eski sut"})

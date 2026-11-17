@@ -13,6 +13,7 @@
     {% if user.is_authenticated and user.is_staff %}
     <nav class="nav">
       <a href="{% url 'index' %}">Home</a>
+      <a href="{% url 'catalog:product_list' %}">Products</a>
       <a href="{% url 'admin:index' %}">Admin</a>
     </nav>
     {% endif %}
