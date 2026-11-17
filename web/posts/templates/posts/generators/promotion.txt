@@ -1,0 +1,5 @@
+{% load i18n %}{% blocktranslate %}🔥 {{ product }}{% endblocktranslate %}
+{% blocktranslate %}🏪 {{ store }}, {{ city }}{% endblocktranslate %}
+{% blocktranslate %}💰 Now {{ price }} so'm instead of {{ regular_price }} so'm (−{{ discount }}%){% endblocktranslate %}{% if promo_until %}
+{% blocktranslate %}⏳ Valid until {{ promo_until }}{% endblocktranslate %}{% endif %}{% if address %}
+{% blocktranslate %}📍 Address: {{ address }}{% endblocktranslate %}{% endif %}

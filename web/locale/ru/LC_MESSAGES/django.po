@@ -1,0 +1,128 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: regional-price\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-18 01:42+0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
+
+msgid "Home"
+msgstr "Главная"
+
+msgid "Products"
+msgstr "Товары"
+
+msgid "Stores"
+msgstr "Магазины"
+
+msgid "Enter prices"
+msgstr "Ввод цен"
+
+msgid "Baskets"
+msgstr "Корзины"
+
+msgid "Posts"
+msgstr "Посты"
+
+msgid "Admin"
+msgstr "Админка"
+
+msgid "Language"
+msgstr "Язык"
+
+msgid "Log out"
+msgstr "Выйти"
+
+msgid "Log in"
+msgstr "Войти"
+
+msgid "Staff access for the channel editors."
+msgstr "Вход для редакторов канала."
+
+#, python-format
+msgid "🛒 Basket “%(basket)s”: where is it cheapest?"
+msgstr "🛒 Корзина «%(basket)s»: где дешевле?"
+
+msgid "In the basket:"
+msgstr "В корзине:"
+
+#, python-format
+msgid "💰 Shopping at %(best)s instead of %(worst)s saves %(savings)s so'm."
+msgstr ""
+"💰 Покупая в %(best)s, а не в %(worst)s, вы сэкономите %(savings)s сум."
+
+msgid ""
+"* Not every product is sold there; the missing ones are counted at their "
+"average price."
+msgstr "* Там продаются не все товары; недостающие посчитаны по средней цене."
+
+#, python-format
+msgid "🆕 We now track prices at %(store)s!"
+msgstr "🆕 Теперь мы следим за ценами в %(store)s!"
+
+#, python-format
+msgid "📍 %(city)s, %(district)s"
+msgstr "📍 %(city)s, %(district)s"
+
+#, python-format
+msgid "We already know the price of %(counter)s product there."
+msgid_plural "We already know the prices of %(counter)s products there."
+msgstr[0] "Мы уже знаем цену %(counter)s товара там."
+msgstr[1] "Мы уже знаем цены %(counter)s товаров там."
+msgstr[2] "Мы уже знаем цены %(counter)s товаров там."
+
+msgid "Follow the channel to see how its prices compare with other stores."
+msgstr "Следите за каналом, чтобы сравнивать его цены с другими магазинами."
+
+#, python-format
+msgid "📊 Prices for %(product)s in %(city)s:"
+msgstr "📊 Цены на %(product)s в городе %(city)s:"
+
+#, python-format
+msgid "📊 Prices for %(product)s in the Fergana Valley:"
+msgstr "📊 Цены на %(product)s в Ферганской долине:"
+
+#, python-format
+msgid ""
+"💡 The difference between the cheapest and the most expensive store is "
+"%(difference)s so'm (%(percent)s%%)."
+msgstr ""
+"💡 Разница между самым дешёвым и самым дорогим магазином — %(difference)s сум"
+" (%(percent)s%%)."
+
+#, python-format
+msgid "Prices as of %(date)s."
+msgstr "Цены на %(date)s."
+
+#, python-format
+msgid "🔥 %(product)s"
+msgstr "🔥 %(product)s"
+
+#, python-format
+msgid "🏪 %(store)s, %(city)s"
+msgstr "🏪 %(store)s, %(city)s"
+
+#, python-format
+msgid ""
+"💰 Now %(price)s so'm instead of %(regular_price)s so'm (−%(discount)s%%)"
+msgstr "💰 Сейчас %(price)s сум вместо %(regular_price)s сум (−%(discount)s%%)"
+
+#, python-format
+msgid "⏳ Valid until %(promo_until)s"
+msgstr "⏳ Действует до %(promo_until)s"
+
+#, python-format
+msgid "📍 Address: %(address)s"
+msgstr "📍 Адрес: %(address)s"

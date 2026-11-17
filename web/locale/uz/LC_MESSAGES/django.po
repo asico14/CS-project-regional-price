@@ -1,0 +1,131 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: regional-price\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-18 01:42+0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: uz\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Home"
+msgstr "Bosh sahifa"
+
+msgid "Products"
+msgstr "Mahsulotlar"
+
+msgid "Stores"
+msgstr "Do'konlar"
+
+msgid "Enter prices"
+msgstr "Narx kiritish"
+
+msgid "Baskets"
+msgstr "Savatlar"
+
+msgid "Posts"
+msgstr "Postlar"
+
+msgid "Admin"
+msgstr "Admin"
+
+msgid "Language"
+msgstr "Til"
+
+msgid "Log out"
+msgstr "Chiqish"
+
+msgid "Log in"
+msgstr "Kirish"
+
+msgid "Staff access for the channel editors."
+msgstr "Kanal muharrirlari uchun kirish."
+
+#, python-format
+msgid "🛒 Basket “%(basket)s”: where is it cheapest?"
+msgstr "🛒 “%(basket)s” savati: qayerda arzonroq?"
+
+msgid "In the basket:"
+msgstr "Savatda:"
+
+#, python-format
+msgid "💰 Shopping at %(best)s instead of %(worst)s saves %(savings)s so'm."
+msgstr ""
+"💰 %(worst)s o'rniga %(best)s do'konidan xarid qilsangiz, %(savings)s so'm "
+"tejaysiz."
+
+msgid ""
+"* Not every product is sold there; the missing ones are counted at their "
+"average price."
+msgstr ""
+"* U yerda hamma mahsulot sotilmaydi; yo'qlari o'rtacha narxda hisoblangan."
+
+#, python-format
+msgid "🆕 We now track prices at %(store)s!"
+msgstr "🆕 Endi %(store)s narxlarini ham kuzatamiz!"
+
+#, python-format
+msgid "📍 %(city)s, %(district)s"
+msgstr "📍 %(city)s, %(district)s"
+
+#, python-format
+msgid "We already know the price of %(counter)s product there."
+msgid_plural "We already know the prices of %(counter)s products there."
+msgstr[0] "U yerda %(counter)s ta mahsulot narxini allaqachon bilamiz."
+
+msgid "Follow the channel to see how its prices compare with other stores."
+msgstr ""
+"Narxlari boshqa do'konlar bilan qanday solishtirilishini kanalda kuzatib "
+"boring."
+
+#, python-format
+msgid "📊 Prices for %(product)s in %(city)s:"
+msgstr "📊 %(city)s shahrida %(product)s narxlari:"
+
+#, python-format
+msgid "📊 Prices for %(product)s in the Fergana Valley:"
+msgstr "📊 Farg'ona vodiysida %(product)s narxlari:"
+
+#, python-format
+msgid ""
+"💡 The difference between the cheapest and the most expensive store is "
+"%(difference)s so'm (%(percent)s%%)."
+msgstr ""
+"💡 Eng arzon va eng qimmat do'kon orasidagi farq %(difference)s so'm "
+"(%(percent)s%%)."
+
+#, python-format
+msgid "Prices as of %(date)s."
+msgstr "Narxlar %(date)s holatiga."
+
+#, python-format
+msgid "🔥 %(product)s"
+msgstr "🔥 %(product)s"
+
+#, python-format
+msgid "🏪 %(store)s, %(city)s"
+msgstr "🏪 %(store)s, %(city)s"
+
+#, python-format
+msgid ""
+"💰 Now %(price)s so'm instead of %(regular_price)s so'm (−%(discount)s%%)"
+msgstr ""
+"💰 Hozir %(price)s so'm, avval %(regular_price)s so'm edi (−%(discount)s%%)"
+
+#, python-format
+msgid "⏳ Valid until %(promo_until)s"
+msgstr "⏳ %(promo_until)s gacha amal qiladi"
+
+#, python-format
+msgid "📍 Address: %(address)s"
+msgstr "📍 Manzil: %(address)s"

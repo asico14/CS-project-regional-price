@@ -218,3 +218,49 @@ class PostPageTests(StaffTestCase):
         Post.objects.create(body="b", rubric="price", status="failed")
         response = self.client.get(reverse("posts:post_list"), {"status": "failed"})
         self.assertEqual([p.body for p in response.context["post_list"]], ["b"])
+
+
+class I18nTests(TestCase):
+    def test_default_language_is_uzbek(self):
+        from django.conf import settings
+
+        self.assertEqual(settings.LANGUAGE_CODE, "uz")
+        self.assertEqual([code for code, _ in settings.LANGUAGES], ["uz", "ru"])
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, '<html lang="uz">')
+        self.assertContains(response, "Kirish")
+
+    def test_language_switch(self):
+        self.client.post(reverse("set_language"), {"language": "ru", "next": "/login/"})
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, "Войти")
+
+    def test_generator_templates_render_in_post_language(self):
+        from .generators import render_text
+
+        context = {"product": "Sut", "store": "Makro", "city": "Qo'qon",
+                   "price": "9 000", "regular_price": "12 000", "discount": 25,
+                   "promo_until": "20.11.2026", "address": ""}
+        uz = render_text("promotion", context, "uz")
+        ru = render_text("promotion", context, "ru")
+        self.assertIn("Hozir 9 000 so'm, avval 12 000 so'm edi (−25%)", uz)
+        self.assertIn("Сейчас 9 000 сум вместо 12 000 сум (−25%)", ru)
+        self.assertIn("20.11.2026 gacha amal qiladi", uz)
+        self.assertNotIn("Address", uz)
+
+    def test_plural_forms(self):
+        from .generators import render_text
+
+        context = {"store": "Havas", "city": "Andijon", "district": "",
+                   "address": "", "product_count": 5}
+        self.assertIn("5 ta mahsulot", render_text("new_store", context, "uz"))
+        self.assertIn("цены 5 товаров", render_text("new_store", context, "ru"))
+        context["product_count"] = 1
+        self.assertIn("цену 1 товара", render_text("new_store", context, "ru"))
+
+    def test_som_filter(self):
+        from core.templatetags.formatting import som
+
+        self.assertEqual(som(1234567), "1 234 567")
+        self.assertEqual(som("950"), "950")
+        self.assertEqual(som(None), None)

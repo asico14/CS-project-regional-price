@@ -1,0 +1,4 @@
+{% load i18n %}{% blocktranslate %}🆕 We now track prices at {{ store }}!{% endblocktranslate %}
+{% if district %}{% blocktranslate %}📍 {{ city }}, {{ district }}{% endblocktranslate %}{% else %}📍 {{ city }}{% endif %}{% if address %}, {{ address }}{% endif %}
+{% if product_count %}{% blocktranslate count counter=product_count %}We already know the price of {{ counter }} product there.{% plural %}We already know the prices of {{ counter }} products there.{% endblocktranslate %}
+{% endif %}{% translate "Follow the channel to see how its prices compare with other stores." %}
