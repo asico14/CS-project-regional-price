@@ -161,6 +161,13 @@ class Price(models.Model):
         return self.promo_until is None or self.promo_until >= timezone.localdate()
 
     @property
+    def effective_price(self):
+        """What a shopper pays today: the regular price once a promotion ended."""
+        if self.regular_price is not None and not self.is_promotion:
+            return self.regular_price
+        return self.price
+
+    @property
     def discount_percent(self):
         if not self.regular_price:
             return 0

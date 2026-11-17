@@ -15,12 +15,12 @@
 <div class="grid">
   <div class="card">
     <div class="muted">Cheapest</div>
-    <div class="stat">{{ cheapest.price|intcomma }} so'm</div>
+    <div class="stat">{{ cheapest.effective_price|intcomma }} so'm</div>
     <div>{{ cheapest.store }}</div>
   </div>
   <div class="card">
     <div class="muted">Most expensive</div>
-    <div class="stat">{{ dearest.price|intcomma }} so'm</div>
+    <div class="stat">{{ dearest.effective_price|intcomma }} so'm</div>
     <div>{{ dearest.store }}</div>
   </div>
   <div class="card">
@@ -50,7 +50,7 @@
           <td>{{ row.price.store.name }}{% if row.is_cheapest %} <span class="badge good">cheapest</span>{% endif %}</td>
           <td>{{ row.price.store.city.name }}</td>
           <td class="num">
-            {{ row.price.price|intcomma }}
+            {{ row.price.effective_price|intcomma }}
             {% if row.price.is_promotion %}<br><s class="muted">{{ row.price.regular_price|intcomma }}</s> <span class="badge bad">−{{ row.price.discount_percent }}%</span>{% endif %}
           </td>
           <td class="num">{{ row.price.unit_price|intcomma }}</td>

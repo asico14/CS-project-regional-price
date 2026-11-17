@@ -143,19 +143,24 @@ class ProductDetailView(StaffRequiredMixin, DetailView):
             Price.objects.current()
             .filter(product=self.object, store__is_active=True)
             .select_related("store__city", "store__district")
-            .order_by("price", "store__city__name", "store__name")
         )
         if city:
             prices = prices.filter(store__city__slug=city)
-        prices = list(prices)
-        cheapest = prices[0].price if prices else None
+        # Sort in Python: an ended promotion counts at its regular price.
+        prices = sorted(
+            prices,
+            key=lambda p: (p.effective_price, p.store.city.name, p.store.name),
+        )
+        cheapest = prices[0].effective_price if prices else None
         stale_before = timezone.localdate() - timedelta(days=STALE_AFTER_DAYS)
         rows = [
             {
                 "price": price,
-                "is_cheapest": price.price == cheapest,
+                "is_cheapest": price.effective_price == cheapest,
                 "is_stale": price.observed_on < stale_before,
-                "diff_percent": round(100 * (price.price - cheapest) / cheapest),
+                "diff_percent": round(
+                    100 * (price.effective_price - cheapest) / cheapest
+                ),
             }
             for price in prices
         ]
@@ -172,7 +177,7 @@ class ProductDetailView(StaffRequiredMixin, DetailView):
             periods=HISTORY_PERIODS,
             cheapest=prices[0] if prices else None,
             dearest=prices[-1] if prices else None,
-            savings=prices[-1].price - cheapest if prices else 0,
+            savings=prices[-1].effective_price - cheapest if prices else 0,
             cities=City.objects.all(),
             selected_city=city,
             stale_days=STALE_AFTER_DAYS,
