@@ -1,8 +1,11 @@
 from django.db.models import Q
-from django.views.generic import ListView
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, ListView, UpdateView
 
 from core.permissions import StaffRequiredMixin
+from core.views_mixins import FormPageMixin
 
+from .forms import ProductForm
 from .models import Category, Product
 
 
@@ -39,3 +42,19 @@ class ProductListView(StaffRequiredMixin, ListView):
             filter_params=params.urlencode(),
         )
         return context
+
+
+class ProductFormMixin(StaffRequiredMixin, FormPageMixin):
+    model = Product
+    form_class = ProductForm
+    noun = "product"
+    cancel_url_name = "catalog:product_list"
+    success_url = reverse_lazy("catalog:product_list")
+
+
+class ProductCreateView(ProductFormMixin, CreateView):
+    pass
+
+
+class ProductUpdateView(ProductFormMixin, UpdateView):
+    pass

@@ -140,3 +140,42 @@ class ProductListTests(StaffTestCase):
     def test_category_filter_and_inactive(self):
         self.assertEqual(self.names(category="gosht"), {"Mol go'shti"})
         self.assertEqual(self.names(q="sut", inactive="1"), {"Sut", "Eski sut"})
+
+
+class ProductFormTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        self.dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+
+    def data(self, **extra):
+        data = {"name": "  Sut   3.2% ", "brand": "Nestle", "category": self.dairy.pk,
+                "unit": "l", "unit_size": "0.9", "is_active": "on"}
+        data.update(extra)
+        return data
+
+    def test_staff_only(self):
+        self.assertStaffOnly(reverse("catalog:product_create"))
+
+    def test_create_and_edit(self):
+        response = self.client.post(reverse("catalog:product_create"), self.data())
+        self.assertRedirects(response, reverse("catalog:product_list"))
+        product = Product.objects.get()
+        self.assertEqual(product.name, "Sut 3.2%")  # whitespace normalised
+        url = reverse("catalog:product_edit", args=[product.pk])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.client.post(url, self.data(unit_size="1", is_active=""))
+        self.assertEqual(Product.objects.count(), 1)
+        product.refresh_from_db()
+        self.assertEqual(product.unit_size, 1)
+        self.assertFalse(product.is_active)
+
+    def test_duplicate_and_invalid_size_are_rejected(self):
+        self.client.post(reverse("catalog:product_create"), self.data())
+        response = self.client.post(reverse("catalog:product_create"), self.data())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        response = self.client.post(
+            reverse("catalog:product_create"), self.data(unit_size="0")
+        )
+        self.assertIn("unit_size", response.context["form"].errors)
+        self.assertEqual(Product.objects.count(), 1)
