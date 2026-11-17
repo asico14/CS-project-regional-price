@@ -11,6 +11,7 @@ urlpatterns = [
     path("", include("catalog.urls")),
     path("", include("locations.urls")),
     path("", include("baskets.urls")),
+    path("", include("posts.urls")),
     path("", include("core.urls")),
 ]
 

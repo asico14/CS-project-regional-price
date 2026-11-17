@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Posts · Regional Price & Deals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Posts</h1>
+  <a class="btn primary" href="{% url 'posts:post_create' %}">New post</a>
+</div>
+
+<nav class="filters">
+  <a class="btn{% if not selected_status %} primary{% endif %}" href="{% url 'posts:post_list' %}">All</a>
+  {% for value, label in statuses %}
+    <a class="btn{% if value == selected_status %} primary{% endif %}" href="?status={{ value }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<div class="table-wrap card">
+  <table>
+    <thead><tr><th>Post</th><th>Rubric</th><th>Lang</th><th>Status</th><th>Scheduled</th><th>Published</th></tr></thead>
+    <tbody>
+    {% for post in post_list %}
+      <tr>
+        <td><a href="{% url 'posts:post_edit' post.pk %}">{{ post|truncatechars:60 }}</a>{% if post.image %} <span class="badge">photo</span>{% endif %}</td>
+        <td>{{ post.get_rubric_display }}</td>
+        <td>{{ post.language }}</td>
+        <td>{% include "posts/status_badge.html" %}</td>
+        <td>{{ post.scheduled_at|date:"d.m.Y H:i"|default:"—" }}</td>
+        <td>{{ post.published_at|date:"d.m.Y H:i"|default:"—" }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="muted">No posts here yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "core/pagination.html" %}
+{% endblock %}
