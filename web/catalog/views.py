@@ -14,6 +14,7 @@ from locations.models import City
 
 from .forms import PriceEntryForm, PriceEntryStartForm, ProductForm
 from .models import Category, Price, Product
+from .services import price_history
 
 
 class ProductListView(StaffRequiredMixin, ListView):
@@ -125,6 +126,7 @@ def price_entry(request):
 
 
 STALE_AFTER_DAYS = 14
+HISTORY_PERIODS = [30, 90, 365]
 
 
 class ProductDetailView(StaffRequiredMixin, DetailView):
@@ -157,8 +159,17 @@ class ProductDetailView(StaffRequiredMixin, DetailView):
             }
             for price in prices
         ]
+        try:
+            period = int(self.request.GET.get("days", 90))
+        except ValueError:
+            period = 90
+        if period not in HISTORY_PERIODS:
+            period = 90
         context.update(
             rows=rows,
+            history=price_history(self.object, period, city),
+            period=period,
+            periods=HISTORY_PERIODS,
             cheapest=prices[0] if prices else None,
             dearest=prices[-1] if prices else None,
             savings=prices[-1].price - cheapest if prices else 0,

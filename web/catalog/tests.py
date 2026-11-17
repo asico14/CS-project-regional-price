@@ -292,3 +292,45 @@ class ProductDetailTests(StaffTestCase):
         other = Product.objects.create(name="Qatiq", category=self.milk.category)
         response = self.client.get(reverse("catalog:product_detail", args=[other.pk]))
         self.assertContains(response, "No prices recorded yet")
+
+
+class PriceHistoryTests(TestCase):
+    def setUp(self):
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(name="Sut", category=dairy)
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.a = Store.objects.create(name="Korzinka", city=city)
+        self.b = Store.objects.create(name="Makro", city=city)
+        self.today = timezone.localdate()
+
+    def add(self, store, price, days_ago):
+        Price.objects.create(product=self.milk, store=store, price=price,
+                             observed_on=self.today - timedelta(days=days_ago))
+
+    def test_series_are_filled_forward(self):
+        from .services import price_history
+
+        self.add(self.a, 9000, 10)  # before the window: becomes the start value
+        self.add(self.a, 9500, 2)
+        self.add(self.b, 8000, 1)
+        history = price_history(self.milk, days=4)
+        self.assertEqual(len(history["labels"]), 4)
+        self.assertEqual(history["labels"][-1], self.today.isoformat())
+        series = {d["label"]: d["data"] for d in history["datasets"]}
+        self.assertEqual(series["Korzinka (Qo'qon)"], [9000, 9500, 9500, 9500])
+        self.assertEqual(series["Makro (Qo'qon)"], [None, None, 8000, 8000])
+
+    def test_detail_page_contains_chart_data(self):
+        from core.testing import make_user
+
+        self.client.force_login(make_user())
+        self.add(self.a, 9000, 3)
+        url = reverse("catalog:product_detail", args=[self.milk.pk])
+        response = self.client.get(url, {"days": "30"})
+        self.assertEqual(response.context["period"], 30)
+        self.assertContains(response, 'id="history-data"')
+        self.assertContains(response, "chart.js@4.4.1")
+        # Unknown periods fall back to the default.
+        self.assertEqual(self.client.get(url, {"days": "x"}).context["period"], 90)
