@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from core.testing import StaffTestCase
 
@@ -158,8 +159,10 @@ class ProductFormTests(StaffTestCase):
 
     def test_create_and_edit(self):
         response = self.client.post(reverse("catalog:product_create"), self.data())
-        self.assertRedirects(response, reverse("catalog:product_list"))
         product = Product.objects.get()
+        self.assertRedirects(
+            response, reverse("catalog:product_detail", args=[product.pk])
+        )
         self.assertEqual(product.name, "Sut 3.2%")  # whitespace normalised
         url = reverse("catalog:product_edit", args=[product.pk])
         self.assertEqual(self.client.get(url).status_code, 200)
@@ -243,3 +246,49 @@ class PriceEntryTests(StaffTestCase):
         response = self.client.post(self.url, {})
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Price.objects.exists())
+
+
+class ProductDetailTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(name="Sut", category=dairy)
+        kokand = City.objects.create(name="Qo'qon", slug="qoqon")
+        fergana = City.objects.create(name="Farg'ona", slug="fargona")
+        self.a = Store.objects.create(name="Korzinka", city=kokand)
+        self.b = Store.objects.create(name="Havas", city=fergana)
+        self.c = Store.objects.create(name="Bozor", city=kokand, is_active=False)
+        today = timezone.localdate()
+        for store, price, days_ago in [
+            (self.a, 9000, 40), (self.a, 10000, 1), (self.b, 9500, 2), (self.c, 100, 1)
+        ]:
+            Price.objects.create(product=self.milk, store=store, price=price,
+                                 observed_on=today - timedelta(days=days_ago))
+        self.url = reverse("catalog:product_detail", args=[self.milk.pk])
+
+    def test_staff_only(self):
+        self.assertStaffOnly(self.url)
+
+    def test_current_prices_cheapest_first(self):
+        response = self.client.get(self.url)
+        rows = response.context["rows"]
+        # Inactive store is hidden; Korzinka shows its newest price only.
+        self.assertEqual([(r["price"].store, r["price"].price) for r in rows],
+                         [(self.b, 9500), (self.a, 10000)])
+        self.assertEqual([r["is_cheapest"] for r in rows], [True, False])
+        self.assertEqual(rows[1]["diff_percent"], 5)
+        self.assertEqual(response.context["savings"], 500)
+        self.assertContains(response, "cheapest")
+
+    def test_city_filter(self):
+        response = self.client.get(self.url, {"city": "qoqon"})
+        rows = response.context["rows"]
+        self.assertEqual([r["price"].store for r in rows], [self.a])
+        self.assertTrue(rows[0]["is_cheapest"])
+
+    def test_no_prices(self):
+        other = Product.objects.create(name="Qatiq", category=self.milk.category)
+        response = self.client.get(reverse("catalog:product_detail", args=[other.pk]))
+        self.assertContains(response, "No prices recorded yet")

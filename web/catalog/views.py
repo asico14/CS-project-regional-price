@@ -1,12 +1,16 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import redirect, render
-from django.urls import reverse_lazy
-from django.views.generic import CreateView, ListView, UpdateView
+from django.urls import reverse
+from django.utils import timezone
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.permissions import StaffRequiredMixin, staff_required
 from core.views_mixins import FormPageMixin
+from locations.models import City
 
 from .forms import PriceEntryForm, PriceEntryStartForm, ProductForm
 from .models import Category, Price, Product
@@ -52,7 +56,9 @@ class ProductFormMixin(StaffRequiredMixin, FormPageMixin):
     form_class = ProductForm
     noun = "product"
     cancel_url_name = "catalog:product_list"
-    success_url = reverse_lazy("catalog:product_list")
+
+    def get_success_url(self):
+        return reverse("catalog:product_detail", args=[self.object.pk])
 
 
 class ProductCreateView(ProductFormMixin, CreateView):
@@ -116,3 +122,48 @@ def price_entry(request):
         "categories": Category.objects.all(),
         "selected_category": category,
     })
+
+
+STALE_AFTER_DAYS = 14
+
+
+class ProductDetailView(StaffRequiredMixin, DetailView):
+    """Current price in every store, cheapest first and highlighted."""
+
+    model = Product
+    template_name = "catalog/product_detail.html"
+    queryset = Product.objects.select_related("category")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        city = self.request.GET.get("city", "")
+        prices = (
+            Price.objects.current()
+            .filter(product=self.object, store__is_active=True)
+            .select_related("store__city", "store__district")
+            .order_by("price", "store__city__name", "store__name")
+        )
+        if city:
+            prices = prices.filter(store__city__slug=city)
+        prices = list(prices)
+        cheapest = prices[0].price if prices else None
+        stale_before = timezone.localdate() - timedelta(days=STALE_AFTER_DAYS)
+        rows = [
+            {
+                "price": price,
+                "is_cheapest": price.price == cheapest,
+                "is_stale": price.observed_on < stale_before,
+                "diff_percent": round(100 * (price.price - cheapest) / cheapest),
+            }
+            for price in prices
+        ]
+        context.update(
+            rows=rows,
+            cheapest=prices[0] if prices else None,
+            dearest=prices[-1] if prices else None,
+            savings=prices[-1].price - cheapest if prices else 0,
+            cities=City.objects.all(),
+            selected_city=city,
+            stale_days=STALE_AFTER_DAYS,
+        )
+        return context
