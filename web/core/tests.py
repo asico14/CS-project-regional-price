@@ -1,5 +1,18 @@
-from django.test import TestCase
+from io import StringIO
+
+from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import PermissionDenied
+from django.core.management import call_command
+from django.http import HttpResponse
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.views import View
+
+from catalog.models import Price, Product
+from locations.models import City, Store
+
+from .permissions import StaffRequiredMixin, staff_required
+from .testing import PASSWORD, make_user
 
 
 class SmokeTests(TestCase):
@@ -13,15 +26,55 @@ class SmokeTests(TestCase):
         self.assertEqual(response.json(), {"status": "ok", "database": "ok"})
 
 
+class AuthTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+        @staff_required
+        def view(request):
+            return HttpResponse("ok")
+
+        class ClassView(StaffRequiredMixin, View):
+            def get(self, request):
+                return HttpResponse("ok")
+
+        self.views = [view, ClassView.as_view()]
+
+    def request(self, user=None):
+        request = self.factory.get("/secret/")
+        request.user = user or AnonymousUser()
+        return request
+
+    def test_anonymous_user_is_sent_to_login(self):
+        for view in self.views:
+            response = view(self.request())
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response.url, "/login/?next=/secret/")
+
+    def test_non_staff_user_is_forbidden(self):
+        user = make_user(staff=False)
+        for view in self.views:
+            with self.assertRaises(PermissionDenied):
+                view(self.request(user))
+
+    def test_staff_user_gets_the_page(self):
+        user = make_user()
+        for view in self.views:
+            self.assertEqual(view(self.request(user)).content, b"ok")
+
+    def test_login_and_logout(self):
+        make_user()
+        response = self.client.post(
+            reverse("login"), {"username": "editor", "password": PASSWORD}
+        )
+        self.assertRedirects(response, reverse("index"), fetch_redirect_response=False)
+        response = self.client.post(reverse("logout"))
+        self.assertRedirects(response, reverse("login"), fetch_redirect_response=False)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+
 class SeedDemoTests(TestCase):
     def test_seed_demo_is_idempotent(self):
-        from io import StringIO
-
-        from django.core.management import call_command
-
-        from catalog.models import Product
-        from locations.models import City, Store
-
         call_command("seed_demo", stdout=StringIO())
         counts = (City.objects.count(), Store.objects.count(), Product.objects.count())
         call_command("seed_demo", stdout=StringIO())
@@ -34,12 +87,6 @@ class SeedDemoTests(TestCase):
             self.assertEqual(store.district.city_id, store.city_id)
 
     def test_seed_demo_generates_prices_once(self):
-        from io import StringIO
-
-        from django.core.management import call_command
-
-        from catalog.models import Price
-
         call_command("seed_demo", "--days=20", stdout=StringIO())
         total = Price.objects.count()
         self.assertGreater(total, 100)

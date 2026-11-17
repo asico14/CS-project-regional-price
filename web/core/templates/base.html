@@ -1,0 +1,36 @@
+{% load static %}<!doctype html>
+<html lang="{{ LANGUAGE_CODE|default:'uz' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Regional Price & Deals{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'core/style.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'index' %}">Regional Price &amp; Deals</a>
+    {% if user.is_authenticated and user.is_staff %}
+    <nav class="nav">
+      <a href="{% url 'index' %}">Home</a>
+      <a href="{% url 'admin:index' %}">Admin</a>
+    </nav>
+    {% endif %}
+    <div class="user">
+      {% if user.is_authenticated %}
+        <span>{{ user.get_username }}</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="link">Log out</button></form>
+      {% else %}
+        <a href="{% url 'login' %}">Log in</a>
+      {% endif %}
+    </div>
+  </header>
+  <main class="container">
+    {% if messages %}
+      <ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
