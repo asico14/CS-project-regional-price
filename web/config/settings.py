@@ -134,3 +134,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "index"
 LOGOUT_REDIRECT_URL = "login"
+
+
+# Uploaded files (post photos). In Docker they live on the shared "data"
+# volume so that the worker can read them when it publishes a post.
+MEDIA_URL = "media/"
+MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media"))
