@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Stores · Regional Price & Deals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Stores</h1>
+  <a class="btn primary" href="{% url 'locations:store_create' %}">New store</a>
+</div>
+
+<form class="filters card" method="get">
+  <select name="city" aria-label="City" onchange="this.form.submit()">
+    <option value="">All cities</option>
+    {% for city in cities %}
+      <option value="{{ city.slug }}"{% if city.slug == selected_city %} selected{% endif %}>{{ city.name }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn" type="submit">Filter</button></noscript>
+</form>
+
+<div class="table-wrap card">
+  <table>
+    <thead><tr><th>Name</th><th>City</th><th>District</th><th>Address</th><th></th></tr></thead>
+    <tbody>
+    {% for store in store_list %}
+      <tr>
+        <td>{{ store.name }}</td>
+        <td>{{ store.city.name }}</td>
+        <td>{{ store.district.name|default:"—" }}</td>
+        <td>{{ store.address|default:"—" }}</td>
+        <td>{% if not store.is_active %}<span class="badge">inactive</span> {% endif %}<a href="{% url 'locations:store_edit' store.pk %}">Edit</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="muted">No stores yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "core/pagination.html" %}
+{% endblock %}

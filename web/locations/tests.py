@@ -2,6 +2,9 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.urls import reverse
+
+from core.testing import StaffTestCase
 
 from .models import City, District, Store
 
@@ -66,3 +69,42 @@ class AdminTests(TestCase):
                     url += "add/"
                 with self.subTest(url=url):
                     self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class StorePageTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        self.kokand = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.fergana = City.objects.create(name="Farg'ona", slug="fargona")
+        self.center = District.objects.create(city=self.kokand, name="Markaz")
+        Store.objects.create(name="Korzinka", city=self.kokand)
+        Store.objects.create(name="Havas", city=self.fergana)
+
+    def test_staff_only(self):
+        self.assertStaffOnly(reverse("locations:store_list"))
+        self.assertStaffOnly(reverse("locations:store_create"))
+
+    def test_city_filter(self):
+        url = reverse("locations:store_list")
+        response = self.client.get(url)
+        self.assertEqual(len(response.context["store_list"]), 2)
+        response = self.client.get(url, {"city": "fargona"})
+        self.assertEqual([s.name for s in response.context["store_list"]], ["Havas"])
+
+    def test_create_and_edit(self):
+        data = {"name": "Makro", "city": self.kokand.pk, "district": self.center.pk,
+                "address": "Turkiston 1", "is_active": "on"}
+        response = self.client.post(reverse("locations:store_create"), data)
+        self.assertRedirects(response, reverse("locations:store_list"))
+        store = Store.objects.get(name="Makro")
+        data["address"] = "Turkiston 2"
+        self.client.post(reverse("locations:store_edit", args=[store.pk]), data)
+        store.refresh_from_db()
+        self.assertEqual(store.address, "Turkiston 2")
+        self.assertEqual(Store.objects.count(), 3)
+
+    def test_district_from_other_city_is_rejected(self):
+        data = {"name": "Makro", "city": self.fergana.pk, "district": self.center.pk}
+        response = self.client.post(reverse("locations:store_create"), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("district", response.context["form"].errors)

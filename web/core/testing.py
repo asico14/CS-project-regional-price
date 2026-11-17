@@ -28,5 +28,6 @@ class StaffTestCase(TestCase):
         self.assertEqual(anonymous.status_code, 302, url)
         self.assertTrue(anonymous.url.startswith("/login/"), url)
         outsider = Client()
-        outsider.force_login(make_user("outsider", staff=False))
+        user = get_user_model().objects.filter(username="outsider").first()
+        outsider.force_login(user or make_user("outsider", staff=False))
         self.assertEqual(outsider.get(url).status_code, 403, url)
