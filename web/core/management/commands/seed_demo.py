@@ -3,14 +3,19 @@
     python manage.py seed_demo
 
 The command is idempotent: running it again does not create duplicates.
+Price history is only generated when the database has no prices yet
+(use --reset-prices to throw the old history away and generate it again).
 """
 
+import random
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
-from catalog.models import Category, Product
+from catalog.models import Category, Price, Product
 from locations.models import City, District, Store
 
 # slug: (name, [districts])
@@ -81,12 +86,33 @@ PRODUCTS = [
 
 
 class Command(BaseCommand):
-    help = "Create demo cities, stores, categories and products."
+    help = "Create demo cities, stores, products, price history and promotions."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--days", type=int, default=60, help="Days of price history (default 60)."
+        )
+        parser.add_argument(
+            "--seed", type=int, default=42, help="Random seed, for repeatable data."
+        )
+        parser.add_argument(
+            "--reset-prices",
+            action="store_true",
+            help="Delete all prices before generating the history.",
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
+        rng = random.Random(options["seed"])
         cities = self.seed_locations()
         products = self.seed_catalog()
+        if options["reset_prices"]:
+            Price.objects.all().delete()
+        if Price.objects.exists():
+            self.stdout.write("Prices already exist, history not generated.")
+        else:
+            history, promos = self.seed_prices(products, options["days"], rng)
+            self.stdout.write(f"Prices: {history} history rows, {promos} promotions.")
         self.stdout.write(
             self.style.SUCCESS(
                 f"Locations: {len(cities)} cities, {Store.objects.count()} stores. "
@@ -128,3 +154,54 @@ class Command(BaseCommand):
             )
             products[product] = base_price
         return products
+
+    def seed_prices(self, products, days, rng):
+        """Generate a believable price history and a few running promotions.
+
+        Every store has its own price level (bazaars are cheaper, supermarkets
+        dearer), stocks about 80% of the products, and changes a price every
+        few days by a small random step. A new row is only written when the
+        price changes, the way real price tracking works.
+        """
+        today = timezone.localdate()
+        start = today - timedelta(days=days - 1)
+        rows = []
+        for store in Store.objects.all():
+            level = 0.92 if "bozor" in store.name.lower() else rng.uniform(0.97, 1.06)
+            for product, base_price in products.items():
+                if rng.random() > 0.8:
+                    continue  # this store does not sell the product
+                price = base_price * level * rng.uniform(0.95, 1.05)
+                day = start
+                while day <= today:
+                    rows.append(
+                        Price(product=product, store=store, price=_round(price),
+                              observed_on=day)
+                    )
+                    day += timedelta(days=rng.randint(3, 10))
+                    # Prices creep up over time (inflation) with some noise.
+                    price *= rng.uniform(0.97, 1.05)
+        Price.objects.bulk_create(rows)
+
+        # Promotions: a discount on ~12% of the current prices.
+        promos = []
+        for current in Price.objects.current().select_related("product", "store"):
+            if rng.random() > 0.12:
+                continue
+            promos.append(
+                Price(
+                    product=current.product,
+                    store=current.store,
+                    price=_round(current.price * rng.uniform(0.7, 0.9)),
+                    regular_price=current.price,
+                    promo_until=today + timedelta(days=rng.randint(2, 10)),
+                    observed_on=today,
+                )
+            )
+        Price.objects.bulk_create(promos)
+        return len(rows), len(promos)
+
+
+def _round(price):
+    """Shops price in whole hundreds of so'm."""
+    return max(100, int(round(price / 100)) * 100)
