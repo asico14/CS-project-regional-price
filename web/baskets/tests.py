@@ -3,9 +3,11 @@ from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 
 from catalog.models import Category, Price, Product
+from core.testing import StaffTestCase, make_user
 from locations.models import City, Store
 
 from .models import Basket, BasketItem
@@ -113,3 +115,78 @@ class CompareBasketTests(BasketTestData):
         comparison = compare_basket(empty)
         self.assertEqual(comparison.results, [])
         self.assertIsNone(comparison.best)
+
+
+class BasketPageTests(BasketTestData):
+    def setUp(self):
+        super().setUp()
+        self.user = make_user()
+        self.client.force_login(self.user)
+
+    def formset_data(self, rows, initial=0):
+        data = {
+            "items-TOTAL_FORMS": str(len(rows)),
+            "items-INITIAL_FORMS": str(initial),
+            "items-MIN_NUM_FORMS": "0",
+            "items-MAX_NUM_FORMS": "1000",
+        }
+        for i, row in enumerate(rows):
+            for key, value in row.items():
+                data[f"items-{i}-{key}"] = value
+        return data
+
+    def test_pages_are_staff_only(self):
+        for url in [reverse("baskets:basket_list"), reverse("baskets:basket_create"),
+                    reverse("baskets:basket_compare", args=[self.basket.pk])]:
+            StaffTestCase.assertStaffOnly(self, url)
+
+    def test_create_basket_with_items(self):
+        data = {"name": "Nonushta", "description": "", "is_active": "on"}
+        data.update(self.formset_data([
+            {"product": self.milk.pk, "quantity": "1"},
+            {"product": self.bread.pk, "quantity": "2"},
+            {"product": "", "quantity": "1"},  # untouched extra row is ignored
+        ]))
+        response = self.client.post(reverse("baskets:basket_create"), data)
+        basket = Basket.objects.get(name="Nonushta")
+        self.assertRedirects(response, reverse("baskets:basket_compare", args=[basket.pk]))
+        self.assertEqual(basket.items.count(), 2)
+        self.assertEqual(basket.created_by, self.user)
+
+    def test_edit_removes_and_changes_items(self):
+        items = list(self.basket.items.order_by("id"))
+        data = {"name": "Weekly", "description": "", "is_active": "on"}
+        data.update(self.formset_data([
+            {"id": items[0].pk, "product": self.milk.pk, "quantity": "5"},
+            {"id": items[1].pk, "product": self.bread.pk, "quantity": "3", "DELETE": "on"},
+            {"id": items[2].pk, "product": self.meat.pk, "quantity": "0.5"},
+        ], initial=3))
+        url = reverse("baskets:basket_edit", args=[self.basket.pk])
+        self.assertEqual(self.client.post(url, data).status_code, 302)
+        self.assertEqual(
+            {(i.product, i.quantity) for i in self.basket.items.all()},
+            {(self.milk, 5), (self.meat, Decimal("0.5"))},
+        )
+
+    def test_duplicate_product_is_rejected(self):
+        data = {"name": "Dup", "description": ""}
+        data.update(self.formset_data([
+            {"product": self.milk.pk, "quantity": "1"},
+            {"product": self.milk.pk, "quantity": "2"},
+        ]))
+        response = self.client.post(reverse("baskets:basket_create"), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Basket.objects.filter(name="Dup").exists())
+
+    def test_compare_page_ranks_and_filters_by_city(self):
+        self.price(self.a, self.milk, 10000)
+        self.price(self.c, self.milk, 9000)
+        url = reverse("baskets:basket_compare", args=[self.basket.pk])
+        response = self.client.get(url)
+        self.assertEqual([r.store for r in response.context["comparison"].results],
+                         [self.c, self.a])
+        self.assertContains(response, "best")
+        response = self.client.get(url, {"city": "qoqon"})
+        self.assertEqual([r.store for r in response.context["comparison"].results],
+                         [self.a])
+        self.assertEqual(self.client.get(url, {"city": "nowhere"}).status_code, 404)

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ basket }} · Regional Price & Deals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ basket.name }}</h1>
+    {% if basket.description %}<span class="muted">{{ basket.description }}</span>{% endif %}
+  </div>
+  <div>
+    <a class="btn" href="{% url 'baskets:basket_edit' basket.pk %}">Edit basket</a>
+  </div>
+</div>
+
+<section class="card">
+  <h2 style="margin-top:0">Contents</h2>
+  {% for item in items %}<span class="badge">{{ item }}</span> {% empty %}<span class="muted">The basket is empty. <a href="{% url 'baskets:basket_edit' basket.pk %}">Add products</a>.</span>{% endfor %}
+  {% if comparison.unavailable %}
+    <p class="error">Not sold in any compared store: {{ comparison.unavailable|join:", " }}. These are left out of every total.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="page-head">
+    <h2 style="margin:0">Store ranking</h2>
+    <form method="get" class="filters" style="margin:0">
+      <select name="city" aria-label="City" onchange="this.form.submit()">
+        <option value="">All cities</option>
+        {% for city in cities %}<option value="{{ city.slug }}"{% if city.slug == selected_city %} selected{% endif %}>{{ city.name }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+  {% if comparison.results %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th class="num">#</th><th>Store</th><th class="num">Total, so'm</th><th class="num">vs best</th><th>Details</th></tr></thead>
+      <tbody>
+      {% for result in comparison.results %}
+        <tr{% if forloop.first %} class="best"{% endif %}>
+          <td class="num">{{ result.rank }}</td>
+          <td>{{ result.store }}{% if forloop.first %} <span class="badge good">best</span>{% endif %}</td>
+          <td class="num">
+            {% if result.is_complete %}{{ result.total|intcomma }}
+            {% else %}≈ {{ result.estimated_total|intcomma }}<br><small class="muted">{{ result.total|intcomma }} without missing</small>{% endif %}
+          </td>
+          <td class="num">{% if result.difference %}+{{ result.difference|intcomma }}{% else %}—{% endif %}</td>
+          <td>
+            {% if not result.is_complete %}<span class="badge warn">missing {{ result.missing|length }}: {{ result.missing|join:", " }}</span>{% endif %}
+            <details>
+              <summary>{{ result.lines|length }} product{{ result.lines|length|pluralize }}</summary>
+              <table>
+                {% for line in result.lines %}
+                  <tr><td>{{ line.item }}</td><td class="num">{{ line.price.effective_price|intcomma }}{% if line.price.is_promotion %} <span class="badge bad">promo</span>{% endif %}</td><td class="num">{{ line.cost|intcomma }}</td></tr>
+                {% endfor %}
+              </table>
+            </details>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">Stores missing products are ranked after complete ones. Their “≈” total fills each missing product with its average price in the other stores.</p>
+  {% else %}
+    <p class="muted">No store has prices for these products{% if selected_city %} in this city{% endif %}.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{% if basket %}Edit {{ basket }}{% else %}New basket{% endif %} · Regional Price & Deals{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 760px">
+  <h1>{% if basket %}Edit basket: {{ basket }}{% else %}New basket{% endif %}</h1>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "core/form_fields.html" %}
+
+    <h2>Products</h2>
+    {{ formset.management_form }}
+    {% if formset.non_form_errors %}<div class="errors">{{ formset.non_form_errors }}</div>{% endif %}
+    <div class="table-wrap">
+      <table id="items">
+        <thead><tr><th>Product</th><th style="width: 9rem">Quantity</th><th>Remove</th></tr></thead>
+        <tbody>
+        {% for item in formset %}
+          <tr class="item-row">
+            <td>{% for hidden in item.hidden_fields %}{{ hidden }}{% endfor %}{{ item.product }}{% for e in item.product.errors %}<small class="error">{{ e }}</small>{% endfor %}{% for e in item.non_field_errors %}<small class="error">{{ e }}</small>{% endfor %}</td>
+            <td>{{ item.quantity }}{% for e in item.quantity.errors %}<small class="error">{{ e }}</small>{% endfor %}</td>
+            <td>{% if item.instance.pk %}{{ item.DELETE }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <template id="empty-row">
+      <tr class="item-row">
+        <td>{% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}{{ formset.empty_form.product }}</td>
+        <td>{{ formset.empty_form.quantity }}</td>
+        <td></td>
+      </tr>
+    </template>
+    <p><button class="btn" type="button" id="add-row">+ Add product</button></p>
+
+    <button class="btn primary" type="submit">Save and compare</button>
+    <a class="btn" href="{% if basket %}{% url 'baskets:basket_compare' basket.pk %}{% else %}{% url 'baskets:basket_list' %}{% endif %}">Cancel</a>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById("add-row").addEventListener("click", function () {
+    const total = document.getElementById("id_items-TOTAL_FORMS");
+    const index = Number(total.value);
+    const html = document.getElementById("empty-row").innerHTML.replace(/__prefix__/g, index);
+    document.querySelector("#items tbody").insertAdjacentHTML("beforeend", html);
+    total.value = index + 1;
+  });
+</script>
+{% endblock %}
