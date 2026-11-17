@@ -1,10 +1,12 @@
+from datetime import date
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
 
-from .models import Category, Product
+from .models import Category, Price, Product
 
 
 class CatalogModelTests(TestCase):
@@ -47,3 +49,60 @@ class CatalogModelTests(TestCase):
         Product.objects.create(name="Sut", category=self.dairy)
         with self.assertRaises(ProtectedError):
             self.dairy.delete()
+
+
+class PriceModelTests(TestCase):
+    def setUp(self):
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(
+            name="Sut", category=dairy, unit="l", unit_size=Decimal("0.5")
+        )
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.store_a = Store.objects.create(name="Korzinka", city=city)
+        self.store_b = Store.objects.create(name="Makro", city=city)
+
+    def add(self, store, price, day, **extra):
+        return Price.objects.create(
+            product=self.milk, store=store, price=price,
+            observed_on=date(2026, 11, day), **extra,
+        )
+
+    def test_prices_cannot_be_changed(self):
+        price = self.add(self.store_a, 6000, 1)
+        price.price = 5000
+        with self.assertRaises(ValueError):
+            price.save()
+
+    def test_current_returns_newest_price_per_store(self):
+        self.add(self.store_a, 6000, 1)
+        newest_a = self.add(self.store_a, 6500, 3)
+        self.add(self.store_b, 7000, 2)
+        newest_b = self.add(self.store_b, 6900, 2)  # same day: later row wins
+        current = set(Price.objects.current())
+        self.assertEqual(current, {newest_a, newest_b})
+
+    def test_unit_price_and_discount(self):
+        price = self.add(self.store_a, 6000, 1, regular_price=8000)
+        self.assertEqual(price.unit_price, 12000)
+        self.assertEqual(price.discount_percent, 25)
+        self.assertTrue(price.is_promotion)
+
+    def test_expired_promotion_is_not_a_promotion(self):
+        price = self.add(
+            self.store_a, 6000, 1, regular_price=8000, promo_until=date(2000, 1, 1)
+        )
+        self.assertFalse(price.is_promotion)
+
+    def test_regular_price_must_be_higher(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.add(self.store_a, 6000, 1, regular_price=6000)
+        with self.assertRaises(ValidationError):
+            Price(product=self.milk, store=self.store_a, price=6000,
+                  regular_price=5000).clean()
+
+    def test_store_with_prices_cannot_be_deleted(self):
+        self.add(self.store_a, 6000, 1)
+        with self.assertRaises(ProtectedError):
+            self.store_a.delete()
