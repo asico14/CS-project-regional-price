@@ -121,3 +121,88 @@ class GeneratePageTests(GeneratorData, StaffTestCase):
         })
         self.assertContains(response, "no prices for this product")
         self.assertFalse(Post.objects.exists())
+
+
+class BasketData(GeneratorData):
+    def setUp(self):
+        super().setUp()
+        from baskets.models import Basket, BasketItem
+
+        self.bread = Product.objects.create(name="Non", category=self.milk.category)
+        self.basket = Basket.objects.create(name="Nonushta")
+        BasketItem.objects.create(basket=self.basket, product=self.milk, quantity=2)
+        BasketItem.objects.create(basket=self.basket, product=self.bread, quantity=1)
+
+
+class ComparisonAndStoreGeneratorTests(BasketData):
+    def test_comparison_post(self):
+        self.add(self.korzinka, 10000)
+        Price.objects.create(product=self.bread, store=self.korzinka, price=4000,
+                             observed_on=self.day)
+        self.add(self.makro, 9000)
+        Price.objects.create(product=self.bread, store=self.makro, price=3000,
+                             observed_on=self.day)
+        self.add(self.havas, 9500)  # no bread: estimated
+        post = generators.comparison_post(self.basket, "uz")
+        self.assertEqual((post.rubric, post.title), ("comparison", "Savat qayerda arzonroq?"))
+        lines = post.body.splitlines()
+        self.assertEqual(lines[0], "🛒 “Nonushta” savati: qayerda arzonroq?")
+        self.assertEqual(lines[1], "Savatda: 1 × Non, 2 × Sut")
+        self.assertIn("🥇 Makro (Qo'qon) — 21 000 so'm", lines)
+        self.assertIn("🥈 Korzinka (Qo'qon) — 24 000 so'm", lines)
+        # Havas misses bread: estimated with the average bread price (3 500).
+        self.assertIn("🥉 Havas (Andijon) — 22 500 so'm*", lines)
+        self.assertIn("Havas o'rniga Makro do'konidan xarid qilsangiz, 1 500 so'm",
+                      post.body)
+        self.assertIn("o'rtacha narxda", post.body)
+
+    def test_comparison_post_without_prices(self):
+        with self.assertRaises(ValueError):
+            generators.comparison_post(self.basket)
+
+    def test_comparison_post_single_store_has_no_savings_line(self):
+        self.add(self.korzinka, 10000)
+        post = generators.comparison_post(self.basket, "ru", city=self.kokand)
+        self.assertIn("🥇 Korzinka — 20 000 сум", post.body)
+        self.assertNotIn("сэкономите", post.body)
+
+    def test_new_store_post(self):
+        from locations.models import District
+
+        center = District.objects.create(city=self.kokand, name="Markaz")
+        store = Store.objects.create(name="Baraka", city=self.kokand, district=center,
+                                     address="Navoiy 5")
+        Price.objects.create(product=self.milk, store=store, price=1, observed_on=self.day)
+        Price.objects.create(product=self.milk, store=store, price=2, observed_on=self.day)
+        Price.objects.create(product=self.bread, store=store, price=3, observed_on=self.day)
+        post = generators.new_store_post(store, "uz")
+        self.assertEqual((post.rubric, post.city), ("store_news", self.kokand))
+        self.assertEqual(post.title, "Yangi do'kon: Baraka")
+        self.assertEqual(post.body.splitlines()[:3], [
+            "🆕 Endi Baraka narxlarini ham kuzatamiz!",
+            "📍 Qo'qon, Markaz, Navoiy 5",
+            "U yerda 2 ta mahsulot narxini allaqachon bilamiz.",
+        ])
+        ru = generators.new_store_post(self.havas, "ru")
+        self.assertEqual(ru.body.splitlines()[1], "📍 Andijon")
+        self.assertNotIn("знаем", ru.body)  # no prices yet
+
+
+class GenerateAllKindsPageTests(BasketData, StaffTestCase):
+    def test_page_lists_four_generators(self):
+        response = self.client.get(reverse("posts:post_generate"))
+        self.assertEqual([f.kind for f in response.context["forms"]],
+                         ["promotion", "price", "comparison", "new_store"])
+
+    def test_generate_new_store_and_comparison(self):
+        response = self.client.post(reverse("posts:post_generate"), {
+            "kind": "new_store", "new_store-store": self.havas.pk,
+            "new_store-language": "uz",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Post.objects.get().hashtags, "#DokonYangiliklari #Andijon")
+        response = self.client.post(reverse("posts:post_generate"), {
+            "kind": "comparison", "comparison-basket": self.basket.pk,
+            "comparison-language": "uz",
+        })
+        self.assertContains(response, "No store has prices")

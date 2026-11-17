@@ -8,6 +8,7 @@
     {% if basket.description %}<span class="muted">{{ basket.description }}</span>{% endif %}
   </div>
   <div>
+    <a class="btn" href="{% url 'posts:post_generate' %}?comparison-basket={{ basket.pk }}{% if city %}&amp;comparison-city={{ city.pk }}{% endif %}#comparison">Make a post</a>
     <a class="btn" href="{% url 'baskets:basket_edit' basket.pk %}">Edit basket</a>
   </div>
 </div>

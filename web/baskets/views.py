@@ -55,4 +55,5 @@ def basket_compare(request, pk):
         "items": basket.items.select_related("product"),
         "cities": City.objects.all(),
         "selected_city": city_slug,
+        "city": city,
     })

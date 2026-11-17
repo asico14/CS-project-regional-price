@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.utils import translation
 from django.utils.translation import gettext_noop
 
+from baskets.services import compare_basket
 from catalog.models import Price
 from core.templatetags.formatting import som
 
@@ -98,5 +99,73 @@ def price_post(product, language="uz", city=None):
         language=language,
         city=city,
         title=f"{translate(PRICE_TITLE, language)}: {product.name}",
+        body=body,
+    )
+
+
+MAX_RANKING_ROWS = 5
+MEDALS = ["🥇", "🥈", "🥉"]
+COMPARISON_TITLE = gettext_noop("Where is the basket cheapest?")
+NEW_STORE_TITLE = gettext_noop("New store")
+
+
+def comparison_post(basket, language="uz", city=None):
+    """Store ranking for a basket (see baskets.services.compare_basket)."""
+    comparison = compare_basket(basket, city=city)
+    results = comparison.results
+    if not results:
+        raise ValueError("No store has prices for the products of this basket.")
+    shown = results[:MAX_RANKING_ROWS]
+    best, worst = results[0], results[-1]
+    rows = []
+    for position, result in enumerate(shown):
+        store = result.store
+        medal = MEDALS[position] if position < len(MEDALS) else f"{position + 1}."
+        rows.append({
+            "medal": medal,
+            "store": store.name if city else f"{store.name} ({store.city.name})",
+            "total": som(result.estimated_total),
+            "estimated": not result.is_complete,
+        })
+    contents = ", ".join(
+        f"{item.quantity.normalize():f} × {item.product.name}"
+        for item in basket.items.select_related("product")
+    )
+    savings = worst.estimated_total - best.estimated_total
+    body = render_text("comparison", {
+        "basket": basket.name,
+        "contents": contents,
+        "rows": rows,
+        "best": best.store.name,
+        "worst": worst.store.name,
+        "savings": som(savings) if savings > 0 and len(results) > 1 else "",
+        "has_estimates": any(row["estimated"] for row in rows),
+    }, language)
+    return Post(
+        rubric=Post.Rubric.COMPARISON,
+        language=language,
+        city=city,
+        title=translate(COMPARISON_TITLE, language),
+        body=body,
+    )
+
+
+def new_store_post(store, language="uz"):
+    """Announce a store whose prices the channel now tracks."""
+    product_count = (
+        Price.objects.filter(store=store).values("product").distinct().count()
+    )
+    body = render_text("new_store", {
+        "store": store.name,
+        "city": store.city.name,
+        "district": store.district.name if store.district_id else "",
+        "address": store.address,
+        "product_count": product_count,
+    }, language)
+    return Post(
+        rubric=Post.Rubric.STORE_NEWS,
+        language=language,
+        city=store.city,
+        title=f"{translate(NEW_STORE_TITLE, language)}: {store.name}",
         body=body,
     )

@@ -2,8 +2,9 @@ from django import forms
 from django.db.models import Q
 from django.utils import timezone
 
+from baskets.models import Basket
 from catalog.models import Price, Product
-from locations.models import City
+from locations.models import City, Store
 
 from . import generators
 from .hashtags import build_hashtags
@@ -153,4 +154,51 @@ class PriceGeneratorForm(GeneratorForm):
         return self.post
 
 
-GENERATOR_FORMS = [PromotionGeneratorForm, PriceGeneratorForm]
+class ComparisonGeneratorForm(GeneratorForm):
+    kind = "comparison"
+    title = "Basket comparison post"
+    help = "Ranks the stores by the price of a whole basket."
+
+    basket = forms.ModelChoiceField(queryset=Basket.objects.filter(is_active=True))
+    city = forms.ModelChoiceField(
+        queryset=City.objects.all(), required=False, empty_label="All cities"
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.errors:
+            return cleaned
+        try:
+            self.post = generators.comparison_post(
+                cleaned["basket"], cleaned["language"], cleaned.get("city")
+            )
+        except ValueError as error:
+            raise forms.ValidationError(str(error))
+        return cleaned
+
+    def generate(self):
+        return self.post
+
+
+class NewStoreGeneratorForm(GeneratorForm):
+    kind = "new_store"
+    title = "New store post"
+    help = "Announces a store whose prices the channel now tracks."
+
+    store = forms.ModelChoiceField(
+        queryset=Store.objects.filter(is_active=True)
+        .select_related("city")
+        .order_by("-created_at")
+    )
+
+    def generate(self):
+        data = self.cleaned_data
+        return generators.new_store_post(data["store"], data["language"])
+
+
+GENERATOR_FORMS = [
+    PromotionGeneratorForm,
+    PriceGeneratorForm,
+    ComparisonGeneratorForm,
+    NewStoreGeneratorForm,
+]
