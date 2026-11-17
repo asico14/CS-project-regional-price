@@ -29,7 +29,7 @@ TABLE = "posts_post"
 POST_COLUMNS = (
     "id", "title", "body", "hashtags", "image", "language", "status",
     "scheduled_at", "published_at", "telegram_message_id", "attempts",
-    "locked_at", "last_error", "updated_at",
+    "locked_at", "last_error", "updated_at", "comments_enabled",
 )
 
 SCHEDULED = "scheduled"
@@ -127,3 +127,14 @@ def fail_stale(conn, now, stale_after=timedelta(minutes=10)):
 def count_by_status(conn):
     rows = conn.execute(f"SELECT status, COUNT(*) AS n FROM {TABLE} GROUP BY status")
     return {row["status"]: row["n"] for row in rows}
+
+
+def comments_enabled_for_message(conn, message_id):
+    """True/False for the post published as channel message ``message_id``,
+    or None if no post has that message id (yet)."""
+    row = conn.execute(
+        f"SELECT comments_enabled FROM {TABLE} WHERE telegram_message_id = ? "
+        "AND status = ?",
+        (message_id, PUBLISHED),
+    ).fetchone()
+    return None if row is None else bool(row["comments_enabled"])

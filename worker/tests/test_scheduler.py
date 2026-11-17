@@ -161,5 +161,38 @@ class NoDoublePublishTests(unittest.TestCase):
         self.assertEqual(get(conn, post_id)["status"], "failed")
 
 
+class RunForeverTests(unittest.TestCase):
+    def test_loop_keeps_running_after_a_crashed_pass(self):
+        conn = make_db()
+        add_post(conn)
+        calls = []
+
+        async def publish(post):
+            calls.append(post["id"])
+            return 1
+
+        original = scheduler.run_once
+        passes = []
+
+        async def flaky_run_once(conn, publish):
+            passes.append(1)
+            if len(passes) == 1:
+                raise RuntimeError("database is locked")
+            return await original(conn, publish, now=NOW)
+
+        scheduler.run_once = flaky_run_once
+        self.addCleanup(setattr, scheduler, "run_once", original)
+
+        async def scenario():
+            task = asyncio.create_task(scheduler.run_forever(conn, publish, interval=0))
+            while len(passes) < 3:
+                await asyncio.sleep(0)
+            task.cancel()
+
+        with self.assertLogs("worker.scheduler", "ERROR"):
+            run(scenario())
+        self.assertEqual(calls, [1])
+
+
 if __name__ == "__main__":
     unittest.main()

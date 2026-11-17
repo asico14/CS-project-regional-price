@@ -135,7 +135,7 @@ class PostPageTests(StaffTestCase):
     def data(self, **extra):
         data = {"rubric": "lifehack", "language": "uz", "title": "Maslahat",
                 "body": "Bozorga ertalab boring.", "extra_tags": "",
-                "scheduled_at": "", "action": "draft"}
+                "scheduled_at": "", "action": "draft", "comments_enabled": "on"}
         data.update(extra)
         return data
 
@@ -264,3 +264,47 @@ class I18nTests(TestCase):
         self.assertEqual(som(1234567), "1 234 567")
         self.assertEqual(som("950"), "950")
         self.assertEqual(som(None), None)
+
+
+class CommentsSettingTests(StaffTestCase):
+    def test_comments_are_on_by_default_and_can_be_switched_off(self):
+        self.assertTrue(Post(body="x", rubric="price").comments_enabled)
+        response = self.client.post(reverse("posts:post_create"), {
+            "rubric": "price", "language": "uz", "title": "", "body": "Narxlar",
+            "extra_tags": "", "scheduled_at": "", "action": "draft",
+        })  # unticked checkbox = not sent
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Post.objects.get().comments_enabled)
+
+    def test_editor_shows_comments_bar_in_preview(self):
+        response = self.client.get(reverse("posts:post_create"))
+        self.assertContains(response, 'id="preview-comments"')
+        self.assertContains(response, 'name="comments_enabled"')
+
+
+class StatusActionTests(StaffTestCase):
+    def test_unschedule_published_post_is_refused(self):
+        post = Post.objects.create(body="x", rubric="price", status="published",
+                                   scheduled_at=timezone.now())
+        response = self.client.post(reverse("posts:post_unschedule", args=[post.pk]),
+                                    follow=True)
+        self.assertContains(response, "can no longer be changed")
+        post.refresh_from_db()
+        self.assertEqual(post.status, "published")
+
+    def test_unschedule_needs_post(self):
+        post = Post.objects.create(body="x", rubric="price")
+        response = self.client.get(reverse("posts:post_unschedule", args=[post.pk]))
+        self.assertEqual(response.status_code, 405)
+
+    def test_failed_post_can_be_rescheduled_in_the_editor(self):
+        post = Post.objects.create(body="x", rubric="price", status="failed",
+                                   last_error="Network")
+        self.client.post(reverse("posts:post_edit", args=[post.pk]), {
+            "rubric": "price", "language": "uz", "title": "", "body": "x",
+            "extra_tags": "", "scheduled_at": "2026-12-01T10:00",
+            "action": "schedule", "comments_enabled": "on",
+        })
+        post.refresh_from_db()
+        self.assertEqual((post.status, post.last_error), ("scheduled", ""))
+        self.assertEqual(timezone.localtime(post.scheduled_at).hour, 10)

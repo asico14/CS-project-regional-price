@@ -14,6 +14,7 @@ import sys
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+import comments
 import db
 import publisher
 import scheduler
@@ -30,6 +31,8 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/db.sqlite3")
 CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "").strip()
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", "/data/media")
 POLL_INTERVAL = int(os.environ.get("SCHEDULER_INTERVAL_SECONDS", "30"))
+# Discussion group linked to the channel (numeric id, -100...); optional.
+DISCUSSION_GROUP_ID = os.environ.get("TELEGRAM_DISCUSSION_GROUP_ID", "").strip()
 
 CITIES = ["Qo'qon", "Farg'ona", "Andijon", "Namangan", "Marg'ilon"]
 
@@ -105,6 +108,11 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("ping", ping))
     application.add_handler(CommandHandler("status", status))
+    if DISCUSSION_GROUP_ID:
+        application.add_handler(comments.make_handler(int(DISCUSSION_GROUP_ID)))
+    else:
+        logger.info("TELEGRAM_DISCUSSION_GROUP_ID is not set: comments cannot be "
+                    "switched off per post.")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

@@ -9,6 +9,7 @@
   .tg-bubble img { display: block; width: 100%; max-height: 320px; object-fit: cover; }
   .tg-text { padding: .55rem .75rem .35rem; white-space: pre-wrap; word-wrap: break-word; font-size: 14.5px; line-height: 1.35; }
   .tg-meta { text-align: right; padding: 0 .6rem .4rem; font-size: 12px; color: #8a9aa9; }
+  .tg-comments { border-top: 1px solid #e6ebef; padding: .45rem .75rem; color: #3a8ccf; font-size: 14px; }
   .tg-channel { font-weight: 600; color: #3a8ccf; padding: .5rem .75rem 0; font-size: 14px; }
   .counter { font-variant-numeric: tabular-nums; }
   .counter.over { color: var(--bad); font-weight: 700; }
@@ -42,6 +43,7 @@
         <img id="preview-image" alt="" hidden{% if post.image %} src="{{ post.image.url }}"{% endif %}>
         <div class="tg-text" id="preview-text"></div>
         <div class="tg-meta">{% now "H:i" %}</div>
+        <div class="tg-comments" id="preview-comments">💬 Leave a comment</div>
       </div>
     </div>
     {% if post and post.status == 'scheduled' %}
@@ -96,10 +98,16 @@
       counter.classList.toggle("over", preview.length > preview.limit);
     }
 
+    const commentsBox = form.querySelector("input[name=comments_enabled]");
+    function refreshComments() {
+      document.getElementById("preview-comments").hidden = commentsBox && !commentsBox.checked;
+    }
+
     function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 250); }
 
     form.addEventListener("input", schedule);
-    form.addEventListener("change", function () { refreshImage(); schedule(); });
+    form.addEventListener("change", function () { refreshImage(); refreshComments(); schedule(); });
+    refreshComments();
     refreshImage();
     refresh();
   })();

@@ -20,8 +20,10 @@ class PostForm(forms.ModelForm):
 
     class Meta:
         model = Post
-        fields = ["rubric", "language", "city", "title", "body", "extra_tags",
-                  "image", "scheduled_at"]
+        fields = [
+            "rubric", "language", "city", "title", "body", "extra_tags", "image",
+            "comments_enabled", "scheduled_at",
+        ]
         widgets = {
             "body": forms.Textarea(attrs={"rows": 12}),
             "scheduled_at": forms.DateTimeInput(

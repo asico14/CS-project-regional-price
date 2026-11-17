@@ -28,7 +28,8 @@ CREATE TABLE posts_post (
     attempts INTEGER NOT NULL DEFAULT 0,
     locked_at DATETIME NULL,
     last_error TEXT NOT NULL DEFAULT '',
-    updated_at DATETIME NOT NULL DEFAULT ''
+    updated_at DATETIME NOT NULL DEFAULT '',
+    comments_enabled BOOL NOT NULL DEFAULT 1
 );
 """
 

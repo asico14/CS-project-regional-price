@@ -74,6 +74,12 @@ class Post(models.Model):
         blank=True,
         help_text='Extra hashtags, separated by commas, e.g. "sut, chegirma".',
     )
+    comments_enabled = models.BooleanField(
+        "comments",
+        default=True,
+        help_text="Allow comments under the post (needs a discussion group "
+        "linked to the channel).",
+    )
     # Built from rubric, language, city and extra_tags on every save.
     hashtags = models.CharField(max_length=300, blank=True, editable=False)
 
