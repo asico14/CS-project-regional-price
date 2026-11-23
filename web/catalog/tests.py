@@ -1,10 +1,16 @@
+from datetime import date, timedelta
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
 from django.test import TestCase
+from django.urls import reverse
+from django.utils import timezone
 
-from .models import Category, Product
+from core.testing import StaffTestCase
+
+from .models import Category, Price, Product
 
 
 class CatalogModelTests(TestCase):
@@ -47,3 +53,284 @@ class CatalogModelTests(TestCase):
         Product.objects.create(name="Sut", category=self.dairy)
         with self.assertRaises(ProtectedError):
             self.dairy.delete()
+
+
+class PriceModelTests(TestCase):
+    def setUp(self):
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(
+            name="Sut", category=dairy, unit="l", unit_size=Decimal("0.5")
+        )
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.store_a = Store.objects.create(name="Korzinka", city=city)
+        self.store_b = Store.objects.create(name="Makro", city=city)
+
+    def add(self, store, price, day, **extra):
+        return Price.objects.create(
+            product=self.milk, store=store, price=price,
+            observed_on=date(2026, 11, day), **extra,
+        )
+
+    def test_prices_cannot_be_changed(self):
+        price = self.add(self.store_a, 6000, 1)
+        price.price = 5000
+        with self.assertRaises(ValueError):
+            price.save()
+
+    def test_current_returns_newest_price_per_store(self):
+        self.add(self.store_a, 6000, 1)
+        newest_a = self.add(self.store_a, 6500, 3)
+        self.add(self.store_b, 7000, 2)
+        newest_b = self.add(self.store_b, 6900, 2)  # same day: later row wins
+        current = set(Price.objects.current())
+        self.assertEqual(current, {newest_a, newest_b})
+
+    def test_unit_price_and_discount(self):
+        price = self.add(self.store_a, 6000, 1, regular_price=8000)
+        self.assertEqual(price.unit_price, 12000)
+        self.assertEqual(price.discount_percent, 25)
+        self.assertTrue(price.is_promotion)
+
+    def test_expired_promotion_is_not_a_promotion(self):
+        price = self.add(
+            self.store_a, 6000, 1, regular_price=8000, promo_until=date(2000, 1, 1)
+        )
+        self.assertFalse(price.is_promotion)
+
+    def test_regular_price_must_be_higher(self):
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            self.add(self.store_a, 6000, 1, regular_price=6000)
+        with self.assertRaises(ValidationError):
+            Price(product=self.milk, store=self.store_a, price=6000,
+                  regular_price=5000).clean()
+
+    def test_store_with_prices_cannot_be_deleted(self):
+        self.add(self.store_a, 6000, 1)
+        with self.assertRaises(ProtectedError):
+            self.store_a.delete()
+
+
+class ProductListTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        meat = Category.objects.create(name="Go'sht", slug="gosht")
+        Product.objects.create(name="Sut", brand="Nestle", category=dairy)
+        Product.objects.create(name="Qatiq", brand="Musaffo", category=dairy)
+        Product.objects.create(name="Mol go'shti", category=meat)
+        Product.objects.create(name="Eski sut", category=dairy, is_active=False)
+        self.url = reverse("catalog:product_list")
+
+    def names(self, **params):
+        response = self.client.get(self.url, params)
+        self.assertEqual(response.status_code, 200)
+        return {p.name for p in response.context["product_list"]}
+
+    def test_staff_only(self):
+        self.assertStaffOnly(self.url)
+
+    def test_lists_active_products(self):
+        self.assertEqual(self.names(), {"Sut", "Qatiq", "Mol go'shti"})
+
+    def test_search_matches_name_and_brand(self):
+        self.assertEqual(self.names(q="sut"), {"Sut"})
+        self.assertEqual(self.names(q="musaffo"), {"Qatiq"})
+
+    def test_category_filter_and_inactive(self):
+        self.assertEqual(self.names(category="gosht"), {"Mol go'shti"})
+        self.assertEqual(self.names(q="sut", inactive="1"), {"Sut", "Eski sut"})
+
+
+class ProductFormTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        self.dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+
+    def data(self, **extra):
+        data = {"name": "  Sut   3.2% ", "brand": "Nestle", "category": self.dairy.pk,
+                "unit": "l", "unit_size": "0.9", "is_active": "on"}
+        data.update(extra)
+        return data
+
+    def test_staff_only(self):
+        self.assertStaffOnly(reverse("catalog:product_create"))
+
+    def test_create_and_edit(self):
+        response = self.client.post(reverse("catalog:product_create"), self.data())
+        product = Product.objects.get()
+        self.assertRedirects(
+            response, reverse("catalog:product_detail", args=[product.pk])
+        )
+        self.assertEqual(product.name, "Sut 3.2%")  # whitespace normalised
+        url = reverse("catalog:product_edit", args=[product.pk])
+        self.assertEqual(self.client.get(url).status_code, 200)
+        self.client.post(url, self.data(unit_size="1", is_active=""))
+        self.assertEqual(Product.objects.count(), 1)
+        product.refresh_from_db()
+        self.assertEqual(product.unit_size, 1)
+        self.assertFalse(product.is_active)
+
+    def test_duplicate_and_invalid_size_are_rejected(self):
+        self.client.post(reverse("catalog:product_create"), self.data())
+        response = self.client.post(reverse("catalog:product_create"), self.data())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["form"].errors)
+        response = self.client.post(
+            reverse("catalog:product_create"), self.data(unit_size="0")
+        )
+        self.assertIn("unit_size", response.context["form"].errors)
+        self.assertEqual(Product.objects.count(), 1)
+
+
+class PriceEntryTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(name="Sut", category=dairy)
+        self.kefir = Product.objects.create(name="Qatiq", category=dairy)
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.store = Store.objects.create(name="Korzinka", city=city)
+        self.url = (
+            reverse("catalog:price_entry")
+            + f"?store={self.store.pk}&observed_on=2026-11-01"
+        )
+
+    def test_staff_only(self):
+        self.assertStaffOnly(reverse("catalog:price_entry"))
+
+    def test_start_page_and_future_date(self):
+        response = self.client.get(reverse("catalog:price_entry"))
+        self.assertTemplateUsed(response, "catalog/price_entry_start.html")
+        response = self.client.get(
+            reverse("catalog:price_entry"),
+            {"store": self.store.pk, "observed_on": "2999-01-01"},
+        )
+        self.assertTemplateUsed(response, "catalog/price_entry_start.html")
+
+    def test_last_price_is_shown(self):
+        Price.objects.create(product=self.milk, store=self.store, price=9000,
+                             observed_on=date(2026, 10, 30))
+        response = self.client.get(self.url)
+        rows = {r["product"]: r["last_price"] for r in response.context["form"].rows}
+        self.assertEqual(rows, {self.milk: 9000, self.kefir: None})
+
+    def test_only_filled_rows_are_saved(self):
+        response = self.client.post(self.url, {
+            f"price_{self.milk.pk}": "9500",
+            f"price_{self.kefir.pk}": "6000",
+            f"regular_{self.kefir.pk}": "7000",
+            f"until_{self.kefir.pk}": "2026-11-05",
+        })
+        self.assertEqual(response.status_code, 302)
+        milk = Price.objects.get(product=self.milk)
+        self.assertEqual((milk.price, milk.observed_on), (9500, date(2026, 11, 1)))
+        self.assertEqual(milk.created_by, self.user)
+        kefir = Price.objects.get(product=self.kefir)
+        self.assertEqual(kefir.regular_price, 7000)
+
+    def test_invalid_promo_saves_nothing(self):
+        response = self.client.post(self.url, {
+            f"price_{self.milk.pk}": "9500",
+            f"price_{self.kefir.pk}": "6000",
+            f"regular_{self.kefir.pk}": "5000",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f"regular_{self.kefir.pk}", response.context["form"].errors)
+        self.assertFalse(Price.objects.exists())
+
+    def test_empty_form_saves_nothing(self):
+        response = self.client.post(self.url, {})
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Price.objects.exists())
+
+
+class ProductDetailTests(StaffTestCase):
+    def setUp(self):
+        super().setUp()
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(name="Sut", category=dairy)
+        kokand = City.objects.create(name="Qo'qon", slug="qoqon")
+        fergana = City.objects.create(name="Farg'ona", slug="fargona")
+        self.a = Store.objects.create(name="Korzinka", city=kokand)
+        self.b = Store.objects.create(name="Havas", city=fergana)
+        self.c = Store.objects.create(name="Bozor", city=kokand, is_active=False)
+        today = timezone.localdate()
+        for store, price, days_ago in [
+            (self.a, 9000, 40), (self.a, 10000, 1), (self.b, 9500, 2), (self.c, 100, 1)
+        ]:
+            Price.objects.create(product=self.milk, store=store, price=price,
+                                 observed_on=today - timedelta(days=days_ago))
+        self.url = reverse("catalog:product_detail", args=[self.milk.pk])
+
+    def test_staff_only(self):
+        self.assertStaffOnly(self.url)
+
+    def test_current_prices_cheapest_first(self):
+        response = self.client.get(self.url)
+        rows = response.context["rows"]
+        # Inactive store is hidden; Korzinka shows its newest price only.
+        self.assertEqual([(r["price"].store, r["price"].price) for r in rows],
+                         [(self.b, 9500), (self.a, 10000)])
+        self.assertEqual([r["is_cheapest"] for r in rows], [True, False])
+        self.assertEqual(rows[1]["diff_percent"], 5)
+        self.assertEqual(response.context["savings"], 500)
+        self.assertContains(response, "cheapest")
+
+    def test_city_filter(self):
+        response = self.client.get(self.url, {"city": "qoqon"})
+        rows = response.context["rows"]
+        self.assertEqual([r["price"].store for r in rows], [self.a])
+        self.assertTrue(rows[0]["is_cheapest"])
+
+    def test_no_prices(self):
+        other = Product.objects.create(name="Qatiq", category=self.milk.category)
+        response = self.client.get(reverse("catalog:product_detail", args=[other.pk]))
+        self.assertContains(response, "No prices recorded yet")
+
+
+class PriceHistoryTests(TestCase):
+    def setUp(self):
+        from locations.models import City, Store
+
+        dairy = Category.objects.create(name="Sut mahsulotlari", slug="sut")
+        self.milk = Product.objects.create(name="Sut", category=dairy)
+        city = City.objects.create(name="Qo'qon", slug="qoqon")
+        self.a = Store.objects.create(name="Korzinka", city=city)
+        self.b = Store.objects.create(name="Makro", city=city)
+        self.today = timezone.localdate()
+
+    def add(self, store, price, days_ago):
+        Price.objects.create(product=self.milk, store=store, price=price,
+                             observed_on=self.today - timedelta(days=days_ago))
+
+    def test_series_are_filled_forward(self):
+        from .services import price_history
+
+        self.add(self.a, 9000, 10)  # before the window: becomes the start value
+        self.add(self.a, 9500, 2)
+        self.add(self.b, 8000, 1)
+        history = price_history(self.milk, days=4)
+        self.assertEqual(len(history["labels"]), 4)
+        self.assertEqual(history["labels"][-1], self.today.isoformat())
+        series = {d["label"]: d["data"] for d in history["datasets"]}
+        self.assertEqual(series["Korzinka (Qo'qon)"], [9000, 9500, 9500, 9500])
+        self.assertEqual(series["Makro (Qo'qon)"], [None, None, 8000, 8000])
+
+    def test_detail_page_contains_chart_data(self):
+        from core.testing import make_user
+
+        self.client.force_login(make_user())
+        self.add(self.a, 9000, 3)
+        url = reverse("catalog:product_detail", args=[self.milk.pk])
+        response = self.client.get(url, {"days": "30"})
+        self.assertEqual(response.context["period"], 30)
+        self.assertContains(response, 'id="history-data"')
+        self.assertContains(response, "chart.js@4.4.1")
+        # Unknown periods fall back to the default.
+        self.assertEqual(self.client.get(url, {"days": "x"}).context["period"], 90)

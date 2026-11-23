@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}{% if post %}Edit post{% else %}New post{% endif %} · Regional Price & Deals{% endblock %}
+{% block head %}
+<style>
+  .post-layout { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); align-items: start; }
+  @media (max-width: 860px) { .post-layout { grid-template-columns: minmax(0, 1fr); } }
+  .tg-screen { background: #c8d9b9; border-radius: var(--radius); padding: 1rem; position: sticky; top: 1rem; }
+  .tg-bubble { background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.15); overflow: hidden; max-width: 100%; color: #000; }
+  .tg-bubble img { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+  .tg-text { padding: .55rem .75rem .35rem; white-space: pre-wrap; word-wrap: break-word; font-size: 14.5px; line-height: 1.35; }
+  .tg-meta { text-align: right; padding: 0 .6rem .4rem; font-size: 12px; color: #8a9aa9; }
+  .tg-comments { border-top: 1px solid #e6ebef; padding: .45rem .75rem; color: #3a8ccf; font-size: 14px; }
+  .tg-channel { font-weight: 600; color: #3a8ccf; padding: .5rem .75rem 0; font-size: 14px; }
+  .counter { font-variant-numeric: tabular-nums; }
+  .counter.over { color: var(--bad); font-weight: 700; }
+  .form-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if post %}Edit post{% else %}New post{% endif %}</h1>
+    {% if post %}{% include "posts/status_badge.html" %}{% if post.last_error %} <span class="error">{{ post.last_error }}</span>{% endif %}{% endif %}
+  </div>
+  <a class="btn" href="{% url 'posts:post_list' %}">All posts</a>
+</div>
+
+<div class="post-layout">
+  <form method="post" enctype="multipart/form-data" class="card" id="post-form" novalidate>
+    {% csrf_token %}
+    {% include "core/form_fields.html" %}
+    <p>Length: <span class="counter" id="counter">…</span></p>
+    <div class="form-actions">
+      <button class="btn" type="submit" name="action" value="draft">Save as draft</button>
+      <button class="btn primary" type="submit" name="action" value="schedule">Save and schedule</button>
+    </div>
+  </form>
+
+  <aside>
+    <div class="tg-screen" aria-label="Telegram preview">
+      <div class="tg-bubble">
+        <div class="tg-channel">Regional Price &amp; Deals</div>
+        <img id="preview-image" alt="" hidden{% if post.image %} src="{{ post.image.url }}"{% endif %}>
+        <div class="tg-text" id="preview-text"></div>
+        <div class="tg-meta">{% now "H:i" %}</div>
+        <div class="tg-comments" id="preview-comments">💬 Leave a comment</div>
+      </div>
+    </div>
+    {% if post and post.status == 'scheduled' %}
+      <form method="post" action="{% url 'posts:post_unschedule' post.pk %}" style="margin-top: 1rem">
+        {% csrf_token %}
+        <button class="btn" type="submit">Move back to drafts</button>
+      </form>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("post-form");
+    const text = document.getElementById("preview-text");
+    const counter = document.getElementById("counter");
+    const image = document.getElementById("preview-image");
+    const fileInput = form.querySelector("input[type=file]");
+    const clearBox = form.querySelector("input[name=image-clear]");
+    let hasStoredImage = image.hasAttribute("src");
+    let objectUrl = null;
+    let timer = null;
+
+    function hasImage() {
+      if (fileInput && fileInput.files.length) return true;
+      return hasStoredImage && !(clearBox && clearBox.checked);
+    }
+
+    function refreshImage() {
+      if (fileInput && fileInput.files.length) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        objectUrl = URL.createObjectURL(fileInput.files[0]);
+        image.src = objectUrl;
+      }
+      image.hidden = !hasImage();
+    }
+
+    async function refresh() {
+      const data = new FormData();
+      ["csrfmiddlewaretoken", "title", "body", "rubric", "language", "city", "extra_tags"].forEach(function (name) {
+        const field = form.elements[name];
+        if (field) data.append(name, field.value);
+      });
+      data.append("has_image", hasImage() ? "1" : "0");
+      const response = await fetch("{% url 'posts:post_preview' %}", { method: "POST", body: data });
+      if (!response.ok) return;
+      const preview = await response.json();
+      // The server escapes the editor's text; only <b> for the title is markup.
+      text.innerHTML = preview.html || "<span style='color:#8a9aa9'>Start typing…</span>";
+      counter.textContent = preview.length + " / " + preview.limit + (hasImage() ? " (photo caption)" : "");
+      counter.classList.toggle("over", preview.length > preview.limit);
+    }
+
+    const commentsBox = form.querySelector("input[name=comments_enabled]");
+    function refreshComments() {
+      document.getElementById("preview-comments").hidden = commentsBox && !commentsBox.checked;
+    }
+
+    function schedule() { clearTimeout(timer); timer = setTimeout(refresh, 250); }
+
+    form.addEventListener("input", schedule);
+    form.addEventListener("change", function () { refreshImage(); refreshComments(); schedule(); });
+    refreshComments();
+    refreshImage();
+    refresh();
+  })();
+</script>
+{% endblock %}

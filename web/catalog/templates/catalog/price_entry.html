@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Enter prices · {{ store }} · Regional Price & Deals{% endblock %}
+{% block head %}
+<style>
+  .entry td { padding: .3rem .5rem; }
+  .entry input { width: 8.5rem; }
+  .entry input[type=date] { width: 10rem; }
+  .entry .cat td { background: var(--bg); font-weight: 600; }
+  .entry tr.filled td { background: var(--good-bg); }
+  .sticky-save { position: sticky; bottom: 0; background: var(--surface); padding: .75rem 0; border-top: 1px solid var(--border); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ store }}</h1>
+    <span class="muted">Prices seen on {{ day|date:"d.m.Y" }}</span>
+    {% if already %}<span class="badge warn">{{ already }} price{{ already|pluralize }} already entered for this day</span>{% endif %}
+  </div>
+  <a class="btn" href="{% url 'catalog:price_entry' %}">Change store or day</a>
+</div>
+
+<form class="filters card" method="get">
+  <input type="hidden" name="store" value="{{ store.pk }}">
+  <input type="hidden" name="observed_on" value="{{ day|date:'Y-m-d' }}">
+  <select name="category" aria-label="Category" onchange="this.form.submit()">
+    <option value="">All categories</option>
+    {% for category in categories %}
+      <option value="{{ category.slug }}"{% if category.slug == selected_category %} selected{% endif %}>{{ category.name }}</option>
+    {% endfor %}
+  </select>
+  <span class="muted">Tip: type a price and press Enter to jump to the next product. Grey numbers are the last known prices.</span>
+</form>
+
+<form method="post" class="card" id="entry-form">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="errors">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="table-wrap">
+    <table class="entry">
+      <thead><tr><th>Product</th><th class="num">Last</th><th>Price, so'm</th><th>Regular price <small>(promo)</small></th><th>Promo until</th></tr></thead>
+      <tbody>
+      {% for row in form.rows %}
+        {% ifchanged row.product.category_id %}<tr class="cat"><td colspan="5">{{ row.product.category }}</td></tr>{% endifchanged %}
+        <tr>
+          <td><label for="{{ row.price.id_for_label }}">{{ row.product }}</label></td>
+          <td class="num muted">{{ row.last_price|default:"—" }}</td>
+          <td>{{ row.price }}{% for e in row.price.errors %}<small class="error">{{ e }}</small>{% endfor %}</td>
+          <td>{{ row.regular }}{% for e in row.regular.errors %}<small class="error">{{ e }}</small>{% endfor %}</td>
+          <td>{{ row.until }}{% for e in row.until.errors %}<small class="error">{{ e }}</small>{% endfor %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="muted">No active products in this category.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="sticky-save">
+    <button class="btn primary" type="submit">Save prices</button>
+    <span class="muted" id="filled-count"></span>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("entry-form");
+    const inputs = Array.from(form.querySelectorAll(".price-input"));
+    const counter = document.getElementById("filled-count");
+    function refresh() {
+      let filled = 0;
+      inputs.forEach(function (input) {
+        const row = input.closest("tr");
+        row.classList.toggle("filled", input.value !== "");
+        if (input.value !== "") filled += 1;
+      });
+      counter.textContent = filled ? filled + " price" + (filled === 1 ? "" : "s") + " to save" : "";
+    }
+    inputs.forEach(function (input, index) {
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.ctrlKey) {
+          event.preventDefault();
+          const next = inputs[index + 1];
+          if (next) { next.focus(); next.select(); }
+        }
+      });
+      input.addEventListener("input", refresh);
+    });
+    const firstEmpty = inputs.find(function (i) { return i.value === ""; });
+    if (firstEmpty) firstEmpty.focus();
+    refresh();
+  })();
+</script>
+{% endblock %}

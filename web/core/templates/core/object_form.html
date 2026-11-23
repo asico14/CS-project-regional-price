@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% comment %}
+Generic create/edit page. The view passes: form, form_title, cancel_url.
+{% endcomment %}
+{% block title %}{{ form_title }} · Regional Price & Deals{% endblock %}
+{% block content %}
+<section class="card" style="max-width: 640px">
+  <h1>{{ form_title }}</h1>
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    {% include "core/form_fields.html" %}
+    <button class="btn primary" type="submit">Save</button>
+    <a class="btn" href="{{ cancel_url }}">Cancel</a>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ product }} · Regional Price & Deals{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ product.name }}{% if product.brand %} <span class="muted">· {{ product.brand }}</span>{% endif %}</h1>
+    <span class="muted">{{ product.category }} · {{ product.unit_size.normalize }} {{ product.get_unit_display }}</span>
+    {% if not product.is_active %}<span class="badge">inactive</span>{% endif %}
+  </div>
+  <div>
+    <a class="btn" href="{% url 'posts:post_generate' %}?price-product={{ product.pk }}#price">Make a price post</a>
+    <a class="btn" href="{% url 'catalog:product_edit' product.pk %}">Edit product</a>
+  </div>
+</div>
+
+{% if cheapest %}
+<div class="grid">
+  <div class="card">
+    <div class="muted">Cheapest</div>
+    <div class="stat">{{ cheapest.effective_price|intcomma }} so'm</div>
+    <div>{{ cheapest.store }}</div>
+  </div>
+  <div class="card">
+    <div class="muted">Most expensive</div>
+    <div class="stat">{{ dearest.effective_price|intcomma }} so'm</div>
+    <div>{{ dearest.store }}</div>
+  </div>
+  <div class="card">
+    <div class="muted">You save by choosing the cheapest</div>
+    <div class="stat">{{ savings|intcomma }} so'm</div>
+    <div class="muted">{{ rows|length }} store{{ rows|length|pluralize }} compared</div>
+  </div>
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="page-head">
+    <h2 style="margin:0">Current prices</h2>
+    <form method="get" class="filters" style="margin:0">
+      <select name="city" aria-label="City" onchange="this.form.submit()">
+        <option value="">All cities</option>
+        {% for city in cities %}<option value="{{ city.slug }}"{% if city.slug == selected_city %} selected{% endif %}>{{ city.name }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Store</th><th>City</th><th class="num">Price, so'm</th><th class="num">Per {{ product.get_unit_display }}</th><th class="num">vs cheapest</th><th>Seen on</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr{% if row.is_cheapest %} class="best"{% endif %}>
+          <td>{{ row.price.store.name }}{% if row.is_cheapest %} <span class="badge good">cheapest</span>{% endif %}</td>
+          <td>{{ row.price.store.city.name }}</td>
+          <td class="num">
+            {{ row.price.effective_price|intcomma }}
+            {% if row.price.is_promotion %}<br><s class="muted">{{ row.price.regular_price|intcomma }}</s> <span class="badge bad">−{{ row.price.discount_percent }}%</span>{% endif %}
+          </td>
+          <td class="num">{{ row.price.unit_price|intcomma }}</td>
+          <td class="num">{% if row.is_cheapest %}—{% else %}+{{ row.diff_percent }}%{% endif %}</td>
+          <td>{{ row.price.observed_on|date:"d.m.Y" }}{% if row.is_stale %} <span class="badge warn" title="Older than {{ stale_days }} days">old</span>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="muted">No prices recorded yet. <a href="{% url 'catalog:price_entry' %}">Enter prices</a></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <div class="page-head">
+    <h2 style="margin:0">Price history</h2>
+    <div class="filters" style="margin:0">
+      {% for days in periods %}
+        <a class="btn{% if days == period %} primary{% endif %}" href="?days={{ days }}{% if selected_city %}&amp;city={{ selected_city }}{% endif %}">{{ days }} days</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if history.datasets %}
+    <div style="position: relative; height: 360px"><canvas id="history-chart" aria-label="Price history chart" role="img"></canvas></div>
+    {{ history|json_script:"history-data" }}
+  {% else %}
+    <p class="muted">No price history for this period.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if history.datasets %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    const history = JSON.parse(document.getElementById("history-data").textContent);
+    const palette = ["#1f6feb", "#d1495b", "#2a9d8f", "#e9a23b", "#7b4fd6", "#3a7d44",
+                     "#c2185b", "#00838f", "#8d6e63", "#5c6bc0", "#ef6c00", "#455a64"];
+    const datasets = history.datasets.map(function (set, i) {
+      const color = palette[i % palette.length];
+      return {
+        label: set.label, data: set.data, borderColor: color, backgroundColor: color,
+        stepped: true, pointRadius: 0, borderWidth: 2, spanGaps: false,
+      };
+    });
+    const format = new Intl.NumberFormat("ru-RU");
+    new Chart(document.getElementById("history-chart"), {
+      type: "line",
+      data: { labels: history.labels, datasets: datasets },
+      options: {
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: { ticks: { maxTicksLimit: 10 } },
+          y: { ticks: { callback: function (v) { return format.format(v); } } },
+        },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            itemSort: function (a, b) { return a.parsed.y - b.parsed.y; },
+            callbacks: {
+              label: function (ctx) {
+                return ctx.parsed.y == null ? null : ctx.dataset.label + ": " + format.format(ctx.parsed.y) + " so'm";
+              },
+            },
+          },
+        },
+      },
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

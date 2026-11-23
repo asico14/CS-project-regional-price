@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "Log in" %} · Regional Price & Deals{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>{% translate "Log in" %}</h1>
+  <p class="muted">{% translate "Staff access for the channel editors." %}</p>
+  <form method="post">
+    {% csrf_token %}
+    {% include "core/form_fields.html" %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button class="btn primary" type="submit">{% translate "Log in" %}</button>
+  </form>
+</section>
+{% endblock %}
